@@ -1,4 +1,4 @@
-package net.cadrian.contract.check;
+package net.cadrian.incentive.check;
 
 import static org.junit.Assert.*;
 

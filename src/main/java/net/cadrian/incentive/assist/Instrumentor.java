@@ -30,13 +30,8 @@ import java.util.StringTokenizer;
 import javassist.ByteArrayClassPath;
 import javassist.CannotCompileException;
 import javassist.ClassPool;
-import javassist.CtBehavior;
 import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtField;
-import javassist.CtMethod;
 import javassist.LoaderClassPath;
-import javassist.Modifier;
 import javassist.NotFoundException;
 
 import org.slf4j.Logger;
@@ -46,54 +41,17 @@ public class Instrumentor implements ClassFileTransformer {
 	private static final Logger LOG = LoggerFactory
 			.getLogger(Instrumentor.class);
 
-	private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
-	private static final String OLD_LOCAL_VAR = "__incentive_old__";
-
-	private static final String INVARIANT_METHOD_NAME(final String name) {
-		return String.format("__incentive_inv_%s__", name);
-	}
-
-	private static final String PRECONDITION_METHOD_NAME(final String name) {
-		return String.format("__incentive_req_%s__", name);
-	}
-
-	private static final String POSTCONDITION_METHOD_NAME(final String name) {
-		return String.format("__incentive_ens_%s__", name);
-	}
-
-	private Map<String, byte[]> instrumentedClasses;
-	private String cacheDirectory;
+	private final Map<String, byte[]> instrumentedClasses;
+	private final String cacheDirectory;
 
 	public static void premain(final String options, final Instrumentation ins) {
 		ins.addTransformer(new Instrumentor(options));
 	}
 
 	public Instrumentor(final String options) {
-		init(options);
-	}
-
-	private void init(final String options) {
 		instrumentedClasses = new HashMap<String, byte[]>();
 		if (options != null) {
-			final StringTokenizer tokenizer = new StringTokenizer(options, ",");
-			while (tokenizer.hasMoreTokens()) {
-				final String token = tokenizer.nextToken();
-				final int equalsIndex = token.indexOf('=');
-				if (equalsIndex == -1 || equalsIndex == 0) {
-					LOG.warn("Invalid option: '" + token + "'.");
-				} else {
-					final String name = token.substring(0, equalsIndex)
-							.toLowerCase();
-					if (Option.has(name)) {
-						final String value = token.substring(equalsIndex + 1);
-						Option.valueOf(name).setValue(value);
-					} else {
-						LOG.warn("Invalid option: '" + token + "'.");
-					}
-				}
-			}
-			LOG.debug("Found options: " + options);
-
+			parseOptions(options);
 			cacheDirectory = Option.cache.getValue();
 			if (cacheDirectory != null) {
 				final File classfileDir = new File(cacheDirectory);
@@ -104,7 +62,35 @@ public class Instrumentor implements ClassFileTransformer {
 						"Using cache directory for instrumented class files: {}",
 						classfileDir);
 			}
+		} else {
+			cacheDirectory = null;
 		}
+	}
+
+	private static void parseOptions(final String options) {
+		final StringTokenizer tokenizer = new StringTokenizer(options, ",");
+		while (tokenizer.hasMoreTokens()) {
+			final String token = tokenizer.nextToken();
+			final int equalsIndex = token.indexOf('=');
+			if (equalsIndex == 0) {
+				LOG.warn("Invalid option: '" + token + "'.");
+			} else {
+				final String name = token.substring(0, equalsIndex)
+						.toLowerCase();
+				if (Option.has(name)) {
+					final String value;
+					if (equalsIndex == -1) {
+						value = null;
+					} else {
+						value = token.substring(equalsIndex + 1);
+					}
+					Option.set(name, value);
+				} else {
+					LOG.warn("Invalid option: '" + token + "'.");
+				}
+			}
+		}
+		LOG.debug("Found options: " + options);
 	}
 
 	@Override
@@ -203,10 +189,7 @@ public class Instrumentor implements ClassFileTransformer {
 			a_targetClass.defrost();
 		}
 
-		addInitializedFlag(a_targetClass);
-		addInvariantMethod(a_targetClass);
-		instrumentConstructors(a_targetClass);
-		instrumentMethods(a_targetClass, a_pool);
+		new ClassInstrumentor(a_targetClass, a_pool).instrument();
 
 		if (a_targetClass.isModified()) {
 			byteCode = a_targetClass.toBytecode();
@@ -214,173 +197,6 @@ public class Instrumentor implements ClassFileTransformer {
 		}
 		LOG.debug("Instrumented {}.", targetClassName);
 		return byteCode;
-	}
-
-	private void addInitializedFlag(final CtClass a_targetClass)
-			throws CannotCompileException {
-		if (!InstrumentorUtil.fieldExistsInClass(a_targetClass,
-				INITIALIZED_FLAG_VAR)) {
-			final CtField initializedFlag = CtField.make("private boolean "
-					+ INITIALIZED_FLAG_VAR + " = false;", a_targetClass);
-			a_targetClass.addField(initializedFlag);
-		}
-	}
-
-	private void instrumentMethods(final CtClass a_targetClass,
-			final ClassPool a_pool) throws CannotCompileException,
-			NotFoundException {
-		final CtMethod[] targetMethods = a_targetClass.getDeclaredMethods();
-		for (final CtMethod targetMethod : targetMethods) {
-			instrumentMethod(a_targetClass, targetMethod, a_pool);
-		}
-	}
-
-	private void instrumentMethod(final CtClass a_targetClass,
-			final CtMethod a_targetMethod, final ClassPool a_pool)
-			throws CannotCompileException, NotFoundException {
-		final boolean isPure = InstrumentorUtil.isPure(a_targetMethod);
-		addPreconditionMethod(a_targetMethod, a_pool);
-		addPostconditionMethod(a_targetMethod, a_pool);
-		addClassInvariantCall(a_targetMethod, a_pool, false);
-		addPreconditionCall(a_targetMethod, a_pool);
-		addPostconditionCall(a_targetMethod, a_pool);
-		if (!isPure) {
-			addClassInvariantCall(a_targetMethod, a_pool, true);
-		}
-	}
-
-	private boolean addClassInvariantCall(final CtMethod targetMethod,
-			final ClassPool pool, final boolean after)
-			throws CannotCompileException, NotFoundException {
-		final CtClass targetClass = targetMethod.getDeclaringClass();
-		final String inv = INVARIANT_METHOD_NAME(targetClass.getSimpleName());
-		if (!InstrumentorUtil.methodExistsInClass(targetClass, inv, "()V")
-				|| InstrumentorUtil.instrumentedWith(targetMethod, inv, "()V")
-				|| targetMethod.getDeclaringClass().equals(
-						pool.get("java.lang.Object"))
-				|| Modifier.isAbstract(targetMethod.getModifiers())
-				|| Modifier.isStatic(targetMethod.getModifiers())) {
-			return false;
-		}
-		// Only verify invariant if the instance has been fully created
-		if (after) {
-			targetMethod.insertAfter(String.format("if (%s) {%s();}",
-					INITIALIZED_FLAG_VAR, inv));
-		} else {
-			targetMethod.insertBefore(String.format("if (%s) {%s();}",
-					INITIALIZED_FLAG_VAR, inv));
-		}
-		return true;
-	}
-
-	private boolean addPostconditionCall(final CtMethod a_targetMethod,
-			final ClassPool a_pool) throws CannotCompileException,
-			NotFoundException {
-		final String ens = POSTCONDITION_METHOD_NAME(a_targetMethod.getName());
-		final CtClass targetClass = a_targetMethod.getDeclaringClass();
-		final String postconditionSignature = InstrumentorUtil
-				.makePostconditionSignature(a_targetMethod.getReturnType(),
-						a_targetMethod.getSignature(), a_pool);
-		if (!InstrumentorUtil.methodExistsInClass(targetClass, ens,
-				postconditionSignature)
-				|| InstrumentorUtil.instrumentedWith(a_targetMethod, ens,
-						postconditionSignature)
-				|| Modifier.isAbstract(a_targetMethod.getModifiers())) {
-			return false;
-		}
-		a_targetMethod.insertAfter(String.format("%s(%s,$_,$$);", ens,
-				OLD_LOCAL_VAR));
-		return true;
-	}
-
-	private boolean addPreconditionCall(final CtMethod a_targetMethod,
-			final ClassPool a_pool) throws CannotCompileException,
-			NotFoundException {
-		final String req = PRECONDITION_METHOD_NAME(a_targetMethod.getName());
-		final String preconditionSignature = InstrumentorUtil
-				.makePreconditionSignature(a_targetMethod.getSignature(),
-						a_pool);
-		final CtClass targetClass = a_targetMethod.getDeclaringClass();
-		if (!InstrumentorUtil.methodExistsInClass(targetClass, req,
-				preconditionSignature)
-				|| InstrumentorUtil.instrumentedWith(a_targetMethod, req,
-						preconditionSignature)
-				|| Modifier.isAbstract(a_targetMethod.getModifiers())) {
-			return false;
-		}
-		a_targetMethod.insertBefore(String.format("final %s = %s($$);",
-				OLD_LOCAL_VAR, req));
-		return true;
-	}
-
-	private void instrumentConstructors(final CtClass targetClass)
-			throws CannotCompileException, NotFoundException {
-		final CtConstructor[] constructors = targetClass.getConstructors();
-		for (final CtConstructor constructor : constructors) {
-			if (InstrumentorUtil.methodExistsInClass(constructor
-					.getDeclaringClass(), "pre_" + constructor.getName(),
-					InstrumentorUtil.makePreconditionSignature(constructor
-							.getSignature()))
-					&& !InstrumentorUtil.instrumentedWith(constructor, "pre_"
-							+ constructor.getName(), InstrumentorUtil
-							.makePreconditionSignature(constructor
-									.getSignature()))) {
-				constructor.insertBeforeBody("pre_" + constructor.getName()
-						+ "($$);");
-			}
-
-			if (InstrumentorUtil.methodExistsInClass(constructor
-					.getDeclaringClass(), "post_" + constructor.getName(),
-					InstrumentorUtil.makePreconditionSignature(constructor
-							.getSignature()))
-					&& !InstrumentorUtil.instrumentedWith(constructor, "post_"
-							+ constructor.getName(), InstrumentorUtil
-							.makePreconditionSignature(constructor
-									.getSignature()))) {
-				final String setReturnValueMethodName = InstrumentorUtil
-						.getSetReturnValueMethodName(constructor);
-				constructor.insertAfter(setReturnValueMethodName + "(null);");
-				constructor.insertAfter("post_" + constructor.getName()
-						+ "($$);");
-			}
-
-			// Can't just call classInvariant from here, cuse if
-			// classInvariant() calls super.classInvariant() then it's not
-			// allowed from a constructor
-			final CtField[] fields = targetClass.getDeclaredFields();
-			for (final CtField field : fields) {
-				if (field.getName().startsWith("___contract")
-						&& InstrumentorUtil.methodExistsInClass(
-								field.getType(), "classInvariant", "()V")) {
-					constructor.insertAfter(field.getName()
-							+ ".classInvariant();");
-					constructor
-							.insertAfter("net.sourceforge.c4j.ContractBase.classInvariantCheck(\""
-									+ targetClass.getName() + "\");");
-				}
-			}
-			if (InstrumentorUtil.fieldExistsInClass(targetClass,
-					INITIALIZED_FLAG_VAR)) {
-				constructor.insertAfter(INITIALIZED_FLAG_VAR + " = true;");
-			}
-		}
-	}
-
-	private void addInvariantMethod(final CtClass a_targetClass) {
-		// TODO Auto-generated method stub
-
-	}
-
-	private void addPreconditionMethod(final CtBehavior a_targetBehavior,
-			final ClassPool a_pool) {
-		// TODO Auto-generated method stub
-
-	}
-
-	private void addPostconditionMethod(final CtBehavior a_targetBehavior,
-			final ClassPool a_pool) {
-		// TODO Auto-generated method stub
-
 	}
 
 }
