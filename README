@@ -1,1 +1,6 @@
-incentive is a Design By Contract for Java.
+Incentive is a Design By Contract framework for Java.
+
+Some ideas and small parts of the javassist implementation come from
+C4J (http://c4j.sourceforge.net/).
+
+Bugs are mine.
