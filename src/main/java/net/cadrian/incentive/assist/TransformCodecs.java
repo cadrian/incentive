@@ -3,9 +3,9 @@ package net.cadrian.incentive.assist;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class AssertionCodecs {
+final class TransformCodecs {
 
-	private AssertionCodecs() {
+	private TransformCodecs() {
 	}
 
 	private static final Pattern RESULT_REGEXP = Pattern
@@ -18,7 +18,7 @@ final class AssertionCodecs {
 			.compile("\\{arg\\s+([1-9][0-9]*)\\}");
 
 	// The {result} -- in postconditions only
-	static AssertionCodec RESULT_CODEC = new AssertionCodec() {
+	static TransformCodec POSTCONDITION_RESULT_CODEC = new TransformCodec() {
 		@Override
 		public String decode(final String assertion) {
 			return RESULT_REGEXP.matcher(assertion).replaceAll("$2");
@@ -26,24 +26,23 @@ final class AssertionCodecs {
 	};
 
 	// The {old} values -- in preconditions only
-	static AssertionCodec PRECONDITION_OLD_VALUES_CODEC = new AssertionCodec() {
+	static TransformCodec PRECONDITION_OLD_VALUES_CODEC = new TransformCodec() {
 		@Override
 		public String decode(final String assertion) {
 			final StringBuffer result = new StringBuffer();
 			final Matcher matcher = OLD_REGEXP.matcher(assertion);
 			int i = 0;
 			while (matcher.find()) {
-				matcher.appendReplacement(result, String.format(
-						"%s.set(%d, %s)", BehaviorInstrumentor.OLD_LOCAL_VAR,
-						i++, matcher.group(1)));
+				result.append(String.format("%s.set(%d, %s);",
+						BehaviorInstrumentor.OLD_LOCAL_VAR, i++,
+						matcher.group(1)));
 			}
-			matcher.appendTail(result);
 			return result.toString();
 		};
 	};
 
 	// The {old} values -- in postconditions only
-	static AssertionCodec POSTCONDITION_OLD_VALUES_CODEC = new AssertionCodec() {
+	static TransformCodec POSTCONDITION_OLD_VALUES_CODEC = new TransformCodec() {
 		@Override
 		public String decode(final String assertion) {
 			final StringBuffer result = new StringBuffer();
@@ -58,7 +57,7 @@ final class AssertionCodecs {
 		};
 	};
 
-	static AssertionCodec PRECONDITION_ARGUMENTS_CODEC = new AssertionCodec() {
+	static TransformCodec PRECONDITION_ARGUMENTS_CODEC = new TransformCodec() {
 		@Override
 		public String decode(final String assertion) {
 			final StringBuffer result = new StringBuffer();
@@ -72,7 +71,7 @@ final class AssertionCodecs {
 		};
 	};
 
-	static AssertionCodec POSTCONDITION_ARGUMENTS_CODEC = new AssertionCodec() {
+	static TransformCodec POSTCONDITION_ARGUMENTS_CODEC = new TransformCodec() {
 		@Override
 		public String decode(final String assertion) {
 			final StringBuffer result = new StringBuffer();

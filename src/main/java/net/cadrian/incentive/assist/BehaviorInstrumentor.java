@@ -130,11 +130,22 @@ abstract class BehaviorInstrumentor {
 						parentBehavior.getName()));
 			}
 		}
+
 		final Require require = (Require) targetClass
 				.getAnnotation(Require.class);
 		if (require != null) {
 			src.append(InstrumentorUtil.parseAssertions(require.value(),
-					PRECONDITION_ERROR_NAME, getName()));
+					PRECONDITION_ERROR_NAME, getName(),
+					TransformCodecs.PRECONDITION_ARGUMENTS_CODEC));
+		}
+
+		final Ensure ensure = (Ensure) targetClass.getAnnotation(Ensure.class);
+		if (ensure != null) {
+			for (final String assertion : ensure.value()) {
+				src.append(InstrumentorUtil.transform(assertion,
+						TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
+						TransformCodecs.PRECONDITION_OLD_VALUES_CODEC));
+			}
 		}
 	}
 
@@ -174,7 +185,10 @@ abstract class BehaviorInstrumentor {
 		final Ensure ensure = (Ensure) targetClass.getAnnotation(Ensure.class);
 		if (ensure != null) {
 			src.append(InstrumentorUtil.parseAssertions(ensure.value(),
-					POSTCONDITION_ERROR_NAME, getName()));
+					POSTCONDITION_ERROR_NAME, getName(),
+					TransformCodecs.POSTCONDITION_RESULT_CODEC,
+					TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC,
+					TransformCodecs.POSTCONDITION_OLD_VALUES_CODEC));
 		}
 	}
 

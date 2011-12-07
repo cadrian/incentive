@@ -1,6 +1,6 @@
 package net.cadrian.incentive.assist;
 
-interface AssertionCodec {
+interface TransformCodec {
 
 	String decode(String assertion);
 
