@@ -1,6 +1,6 @@
 package net.cadrian.incentive.error;
 
-public class EnsureError extends AssertionError {
+public class EnsureError extends IncentiveError {
 
 	private static final long serialVersionUID = 2967833574401987016L;
 

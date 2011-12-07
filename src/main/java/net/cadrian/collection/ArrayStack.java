@@ -1,30 +1,38 @@
 package net.cadrian.collection;
 
+import java.util.ArrayList;
+
 public class ArrayStack<G> implements Stack<G> {
 
+	private final ArrayList<G> items;
+
+	public ArrayStack() {
+		items = new ArrayList<G>();
+	}
+
+	@Override
 	public int count() {
-		// TODO Auto-generated method stub
-		return 0;
+		return items.size();
 	}
 
+	@Override
 	public boolean isEmpty() {
-		// TODO Auto-generated method stub
-		return false;
+		return items.isEmpty();
 	}
 
+	@Override
 	public G top() {
-		// TODO Auto-generated method stub
-		return null;
+		return items.get(items.size() - 1);
 	}
 
-	public <E extends G> void push(E g) {
-		// TODO Auto-generated method stub
-		
+	@Override
+	public <E extends G> void push(final E g) {
+		items.add(g);
 	}
 
+	@Override
 	public void pop() {
-		// TODO Auto-generated method stub
-		
+		items.remove(items.size() - 1);
 	}
 
 }

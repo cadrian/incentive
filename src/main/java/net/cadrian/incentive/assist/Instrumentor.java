@@ -112,23 +112,7 @@ public class Instrumentor implements ClassFileTransformer {
 		final String className = classNameWithSlashes.replace('/', '.');
 		LOG.debug("Finding contracts for '" + className + "'.");
 		try {
-			final ClassPool pool = new ClassPool(true);
-			if (loader == null) {
-				pool.appendSystemPath();
-			} else {
-				pool.insertClassPath(new LoaderClassPath(loader));
-			}
-
-			// If this class has already been instrumented before, make sure to
-			// use that code
-			if (classfileBuffer != null && classfileBuffer.length > 0) {
-				pool.insertClassPath(new ByteArrayClassPath(className,
-						classfileBuffer));
-			}
-			final byte[] byteCode = instrumentedClasses.get(className);
-			if (byteCode != null && byteCode.length > 0) {
-				pool.insertClassPath(new ByteArrayClassPath(className, byteCode));
-			}
+			final ClassPool pool = makePool(loader, classfileBuffer, className);
 
 			final CtClass targetClass = pool.get(className);
 			if (targetClass.isInterface()) {
@@ -175,9 +159,31 @@ public class Instrumentor implements ClassFileTransformer {
 		return classfileBuffer;
 	}
 
+	private ClassPool makePool(final ClassLoader loader,
+			final byte[] classfileBuffer, final String className) {
+		final ClassPool pool = new ClassPool(true);
+		if (loader == null) {
+			pool.appendSystemPath();
+		} else {
+			pool.insertClassPath(new LoaderClassPath(loader));
+		}
+
+		// If this class has already been instrumented before, make sure to
+		// use that code
+		if (classfileBuffer != null && classfileBuffer.length > 0) {
+			pool.insertClassPath(new ByteArrayClassPath(className,
+					classfileBuffer));
+		}
+		final byte[] byteCode = instrumentedClasses.get(className);
+		if (byteCode != null && byteCode.length > 0) {
+			pool.insertClassPath(new ByteArrayClassPath(className, byteCode));
+		}
+		return pool;
+	}
+
 	private byte[] instrumentClass(final CtClass a_targetClass,
 			final ClassPool a_pool) throws NotFoundException,
-			CannotCompileException, IOException {
+			CannotCompileException, IOException, ClassNotFoundException {
 		final String targetClassName = a_targetClass.getName();
 
 		byte[] byteCode = instrumentedClasses.get(targetClassName);

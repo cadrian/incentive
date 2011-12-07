@@ -6,7 +6,7 @@ import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.NotFoundException;
 
-class ConstructorInstrumentor extends BehaviourInstrumentor {
+class ConstructorInstrumentor extends BehaviorInstrumentor {
 	private static final String PRECONDITION_NAME(final int index) {
 		return String.format("__incentive_req%d__", index);
 	}

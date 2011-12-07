@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.TYPE)
 public @interface DBC {
-	boolean skip();
+	boolean skip() default false;
 }

@@ -173,4 +173,27 @@ public class InstrumentorUtil {
 		}
 		return false;
 	}
+
+	static String parseAssertions(final String[] assertions,
+			final String errorClassName, final String errorMessage,
+			final AssertionCodec... codecs) {
+		final StringBuilder src = new StringBuilder();
+		for (final String assertion : assertions) {
+			src.append(String.format("if(!(%s)) throw new %s(\"%s\");",
+					parseAssertion(assertion, codecs), errorClassName,
+					errorMessage));
+		}
+		return src.toString();
+	}
+
+	private static String parseAssertion(final String assertion,
+			final AssertionCodec... codecs) {
+		String result = assertion;
+		if (codecs != null) {
+			for (final AssertionCodec codec : codecs) {
+				result = codec.decode(result);
+			}
+		}
+		return result;
+	}
 }

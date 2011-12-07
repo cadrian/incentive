@@ -6,7 +6,7 @@ import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.NotFoundException;
 
-class MethodInstrumentor extends BehaviourInstrumentor {
+class MethodInstrumentor extends BehaviorInstrumentor {
 	private static final String PRECONDITION_NAME(final String name) {
 		return String.format("__incentive_req_%s__", name);
 	}
