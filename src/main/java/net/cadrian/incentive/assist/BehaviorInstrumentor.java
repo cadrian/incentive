@@ -1,3 +1,18 @@
+/*
+ * Incentive, A Design By Contract framework for Java.
+ * Copyright (C) 2011 Cyril Adrian. All Rights Reserved.
+ * 
+ * Javaassist implementation based on C4J's 
+ * Copyright (C) 2006 Jonas Bergstr�m. All Rights Reserved.
+ *
+ * The contents of this file may be used under the terms of the GNU Lesser 
+ * General Public License Version 2.1 or later.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ */
 package net.cadrian.incentive.assist;
 
 import javassist.CannotCompileException;
@@ -13,7 +28,13 @@ import net.cadrian.incentive.Require;
 import net.cadrian.incentive.error.EnsureError;
 import net.cadrian.incentive.error.RequireError;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 abstract class BehaviorInstrumentor {
+	private static final Logger LOG = LoggerFactory
+			.getLogger(BehaviorInstrumentor.class);
+
 	static final String OLD_LOCAL_VAR = "__incentive_old__";
 	private static final String OLD_LOCAL_TYPE = "java.util.ArrayList";
 
@@ -29,7 +50,8 @@ abstract class BehaviorInstrumentor {
 	protected abstract CtClass getReturnType() throws NotFoundException;
 
 	protected abstract void addClassInvariantCall(final boolean before)
-			throws CannotCompileException, NotFoundException;
+			throws CannotCompileException, NotFoundException,
+			ClassNotFoundException;
 
 	protected final ClassInstrumentor classInstrumentor;
 	private final CtBehavior behavior;
@@ -54,23 +76,22 @@ abstract class BehaviorInstrumentor {
 		addClassInvariantCall(false);
 	}
 
-	public String makePreconditionSignature() throws NotFoundException {
-		final String oldListDescriptor = Descriptor
-				.of(pool.get(OLD_LOCAL_TYPE));
-		return Descriptor.changeReturnType(oldListDescriptor,
+	public String makePreconditionSignature() {
+		return Descriptor.changeReturnType(OLD_LOCAL_TYPE,
 				behavior.getSignature());
 	}
 
-	private boolean addMethodPreconditionCall() throws CannotCompileException,
-			NotFoundException {
+	private boolean addMethodPreconditionCall() throws CannotCompileException {
 		final String req = getPreconditionName();
-		final String preconditionSignature = makePreconditionSignature();
-		final CtClass targetClass = behavior.getDeclaringClass();
-		if (!InstrumentorUtil.methodExistsInClass(targetClass, req,
-				preconditionSignature)
-				|| InstrumentorUtil.instrumentedWith(behavior, req,
-						preconditionSignature)
-				|| Modifier.isAbstract(behavior.getModifiers())) {
+		try {
+			final String preconditionSignature = makePreconditionSignature();
+			targetClass.getMethod(req, preconditionSignature);
+			if (InstrumentorUtil.instrumentedWith(behavior, req,
+					preconditionSignature)
+					|| Modifier.isAbstract(behavior.getModifiers())) {
+				return false;
+			}
+		} catch (final NotFoundException x) {
 			return false;
 		}
 		behavior.insertBefore(String.format("final %s = %s($$);",
@@ -80,24 +101,25 @@ abstract class BehaviorInstrumentor {
 
 	public String makePostconditionSignature() throws NotFoundException {
 		final CtClass returnType = getReturnType();
-		final String voidDescriptor = Descriptor.changeReturnType("V",
-				behavior.getSignature());
+		final String voidDescriptor = InstrumentorUtil.voidify(behavior
+				.getSignature());
 		final String returnDescriptor = returnType == CtClass.voidType ? voidDescriptor
 				: Descriptor.insertParameter(returnType, voidDescriptor);
-		final String oldListDescriptor = Descriptor
-				.of(pool.get(OLD_LOCAL_TYPE));
-		return Descriptor.insertParameter(oldListDescriptor, returnDescriptor);
+		return Descriptor.insertParameter(OLD_LOCAL_TYPE, returnDescriptor);
 	}
 
 	private boolean addMethodPostconditionCall() throws CannotCompileException,
 			NotFoundException {
 		final String ens = getPostconditionName();
-		final String postconditionSignature = makePostconditionSignature();
-		if (!InstrumentorUtil.methodExistsInClass(targetClass, ens,
-				postconditionSignature)
-				|| InstrumentorUtil.instrumentedWith(behavior, ens,
-						postconditionSignature)
-				|| Modifier.isAbstract(behavior.getModifiers())) {
+		try {
+			final String postconditionSignature = makePostconditionSignature();
+			targetClass.getMethod(ens, postconditionSignature);
+			if (InstrumentorUtil.instrumentedWith(behavior, ens,
+					postconditionSignature)
+					|| Modifier.isAbstract(behavior.getModifiers())) {
+				return false;
+			}
+		} catch (final NotFoundException x) {
 			return false;
 		}
 		behavior.insertAfter(String.format("%s(%s%s,$$);", ens, OLD_LOCAL_VAR,
@@ -111,9 +133,11 @@ abstract class BehaviorInstrumentor {
 				RequireError.class.getName()).append(" err=null;");
 		addPreconditionCode(src);
 		src.append("if(err!=null)throw err;}");
+		final String code = src.toString();
+		LOG.info("Adding {}: {}", getPreconditionName(), code);
 		targetClass.addMethod(CtNewMethod.make(CtClass.voidType,
 				getPreconditionName(), behavior.getParameterTypes(),
-				new CtClass[0], src.toString(), targetClass));
+				new CtClass[0], code, targetClass));
 	}
 
 	private void addPreconditionCode(final StringBuilder src)
@@ -125,7 +149,7 @@ abstract class BehaviorInstrumentor {
 				src.append("try{");
 				parentBehavior.addPreconditionCode(src);
 				src.append(String.format(
-						"return;}catch(%s){err=new %s(\"%s\",err);}",
+						"return;}catch(%s x){err=new %s(\"%s\",x);}",
 						PRECONDITION_ERROR_NAME, PRECONDITION_ERROR_NAME,
 						parentBehavior.getName()));
 			}
@@ -155,21 +179,28 @@ abstract class BehaviorInstrumentor {
 
 	private void addPostconditionMethod() throws CannotCompileException,
 			NotFoundException, ClassNotFoundException {
-		final StringBuilder src = new StringBuilder('{');
+		final StringBuilder src = new StringBuilder("{");
 		addPostconditionCode(src);
 		src.append('}');
 		final CtClass[] params;
 		final CtClass[] params0 = behavior.getParameterTypes();
+		final int extraParamCount = getReturnType() == CtClass.voidType ? 1 : 2;
 		if (params0 == null) {
-			params = new CtClass[2];
+			params = new CtClass[extraParamCount];
 		} else {
-			params = new CtClass[params0.length + 2];
-			System.arraycopy(params0, 0, params, 2, params0.length);
+			params = new CtClass[params0.length + extraParamCount];
+			System.arraycopy(params0, 0, params, extraParamCount,
+					params0.length);
 		}
 		params[0] = pool.get(OLD_LOCAL_TYPE);
-		params[1] = getReturnType();
+		if (extraParamCount == 2) {
+			params[1] = getReturnType();
+		}
+
+		final String code = src.toString();
+		LOG.info("Postcondition of {} is {}", behavior.getLongName(), code);
 		targetClass.addMethod(CtNewMethod.make(CtClass.voidType,
-				getPostconditionName(), params, new CtClass[0], src.toString(),
+				getPostconditionName(), params, new CtClass[0], code,
 				targetClass));
 	}
 

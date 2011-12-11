@@ -1,3 +1,18 @@
+/*
+ * Incentive, A Design By Contract framework for Java.
+ * Copyright (C) 2011 Cyril Adrian. All Rights Reserved.
+ * 
+ * Javaassist implementation based on C4J's 
+ * Copyright (C) 2006 Jonas Bergstr�m. All Rights Reserved.
+ *
+ * The contents of this file may be used under the terms of the GNU Lesser 
+ * General Public License Version 2.1 or later.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ */
 package net.cadrian.incentive.assist;
 
 import java.util.ArrayList;
@@ -18,9 +33,15 @@ import javassist.NotFoundException;
 import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.error.InvariantError;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 class ClassInstrumentor {
+	private static final Logger LOG = LoggerFactory
+			.getLogger(ClassInstrumentor.class);
 
 	private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
+	private static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
 	private static final String INVARIANT_METHOD_SIGNATURE = "()V";
 	private static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
 	private static final String INVARIANT_ERROR_NAME = InvariantError.class
@@ -85,7 +106,22 @@ class ClassInstrumentor {
 		for (final ClassInstrumentor parent : parents) {
 			parent.instrument();
 		}
-		addInitializedFlag();
+
+		if (targetClass.isInterface()) {
+			// We're only instrumenting classes
+			LOG.info("{} is an interface: not instrumented",
+					targetClass.getName());
+			return;
+		}
+
+		if (!InstrumentorUtil.hasDBC(targetClass)) {
+			// DBC annotation absent or skip=true
+			LOG.info("{} has no DBC, or skipped", targetClass.getName());
+			return;
+		}
+
+		addPrivateFlag(INITIALIZED_FLAG_VAR);
+		addPrivateFlag(INVARIANT_FLAG_VAR);
 		addInvariantMethod();
 		for (final ConstructorInstrumentor constructor : constructors) {
 			constructor.instrument();
@@ -95,57 +131,76 @@ class ClassInstrumentor {
 		}
 	}
 
-	private void addInitializedFlag() throws CannotCompileException {
-		if (!InstrumentorUtil.fieldExistsInClass(targetClass,
-				INITIALIZED_FLAG_VAR)) {
-			final CtField initializedFlag = CtField.make(String.format(
-					"private boolean %s=false;", INITIALIZED_FLAG_VAR),
-					targetClass);
-			targetClass.addField(initializedFlag);
+	private void addPrivateFlag(final String flagName)
+			throws CannotCompileException {
+		try {
+			targetClass.getField(flagName);
+		} catch (final NotFoundException x) {
+			final String code = String.format("private boolean %s=false;",
+					flagName);
+			LOG.info("Adding to {}: {}", targetClass.getName(), code);
+			final CtField flagField = CtField.make(code, targetClass);
+			targetClass.addField(flagField);
 		}
 	}
 
 	boolean addClassInvariantCall(final CtBehavior a_behavior,
 			final boolean before, final boolean initialized)
-			throws CannotCompileException, NotFoundException {
+			throws CannotCompileException {
 
-		final CtClass targetClass = a_behavior.getDeclaringClass();
-		if (!InstrumentorUtil.methodExistsInClass(targetClass,
-				INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
-				|| InstrumentorUtil.instrumentedWith(a_behavior,
-						INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
-				|| a_behavior.getDeclaringClass().equals(
-						pool.get("java.lang.Object"))
-				|| Modifier.isAbstract(a_behavior.getModifiers())
-				|| Modifier.isStatic(a_behavior.getModifiers())) {
+		try {
+			targetClass.getMethod(INVARIANT_METHOD_NAME,
+					INVARIANT_METHOD_SIGNATURE);
+			if (InstrumentorUtil.instrumentedWith(a_behavior,
+					INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
+					|| a_behavior.getDeclaringClass().equals(
+							pool.get("java.lang.Object"))
+					|| Modifier.isAbstract(a_behavior.getModifiers())
+					|| Modifier.isStatic(a_behavior.getModifiers())) {
+				return false;
+			}
+		} catch (final NotFoundException x) {
 			return false;
 		}
 
+		final String code;
 		if (initialized) {
 			// true for constructors; in that case, `before' is false
+			// Note that in that case, the invariant flag is obviously false.
 			a_behavior.insertAfter(String.format("%s=true;",
 					INITIALIZED_FLAG_VAR));
+			code = String.format("%s=true;%s();%s=false;", INVARIANT_FLAG_VAR,
+					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
+					INVARIANT_FLAG_VAR);
+		} else {
+			// Only verify invariant if the instance has been fully created,
+			// hence the "if(...)"
+			code = String.format("if(%s&&!%s){%s=true;%s();%s=false;}",
+					INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR,
+					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
+					INVARIANT_FLAG_VAR);
 		}
 
-		// Only verify invariant if the instance has been fully created,
-		// hence the "if(...)"
-		final String invCall = String.format("if(%s)%s();",
-				INITIALIZED_FLAG_VAR, INVARIANT_METHOD_NAME);
+		LOG.info("Adding {} {}: {}", new String[] {
+				before ? "before" : "after", a_behavior.getName(), code });
+
 		if (before) {
-			a_behavior.insertBefore(invCall);
+			a_behavior.insertBefore(code);
 		} else {
-			a_behavior.insertAfter(invCall);
+			a_behavior.insertAfter(code);
 		}
 		return true;
 	}
 
 	private void addInvariantMethod() throws CannotCompileException,
-			NotFoundException, ClassNotFoundException {
+			ClassNotFoundException {
 		final StringBuilder src = new StringBuilder(String.format(
 				"private void %s() {", INVARIANT_METHOD_NAME));
 		addInvariantCode(src);
 		src.append('}');
-		targetClass.addMethod(CtNewMethod.make(src.toString(), targetClass));
+		final String code = src.toString();
+		LOG.info("Adding to {}: {}", targetClass.getName(), code);
+		targetClass.addMethod(CtNewMethod.make(code, targetClass));
 	}
 
 	private void addInvariantCode(final StringBuilder src)

@@ -1,14 +1,26 @@
 package net.cadrian.incentive.error;
 
+/**
+ * Error thrown when an invariant is not met
+ * 
+ * @author cadrian
+ */
 public class InvariantError extends IncentiveError {
 
 	private static final long serialVersionUID = -8735944225872006033L;
 
-	public InvariantError(String msg) {
+	/**
+	 * @param msg
+	 */
+	public InvariantError(final String msg) {
 		super(msg);
 	}
 
-	public InvariantError(String msg, Throwable t) {
+	/**
+	 * @param msg
+	 * @param t
+	 */
+	public InvariantError(final String msg, final Throwable t) {
 		super(msg, t);
 	}
 

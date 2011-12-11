@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.regex.Pattern;
 
 import javassist.ByteArrayClassPath;
 import javassist.CannotCompileException;
@@ -37,6 +38,12 @@ import javassist.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The javaagent main class
+ * 
+ * @author cadrian
+ * 
+ */
 public class Instrumentor implements ClassFileTransformer {
 	private static final Logger LOG = LoggerFactory
 			.getLogger(Instrumentor.class);
@@ -44,11 +51,21 @@ public class Instrumentor implements ClassFileTransformer {
 	private final Map<String, byte[]> instrumentedClasses;
 	private final String cacheDirectory;
 
+	/**
+	 * The javaagent main method
+	 * 
+	 * @param options
+	 *            the options given by the javaagent framework (come from the
+	 *            command line)
+	 * @param ins
+	 */
 	public static void premain(final String options, final Instrumentation ins) {
+		LOG.info("Starting Incentive...");
 		ins.addTransformer(new Instrumentor(options));
+		LOG.debug("Incentive started.");
 	}
 
-	public Instrumentor(final String options) {
+	private Instrumentor(final String options) {
 		instrumentedClasses = new HashMap<String, byte[]>();
 		if (options != null) {
 			parseOptions(options);
@@ -58,7 +75,7 @@ public class Instrumentor implements ClassFileTransformer {
 				if (!classfileDir.exists()) {
 					classfileDir.mkdirs();
 				}
-				LOG.debug(
+				LOG.info(
 						"Using cache directory for instrumented class files: {}",
 						classfileDir);
 			}
@@ -110,32 +127,31 @@ public class Instrumentor implements ClassFileTransformer {
 		// classNameWithSlashes is on the format "java/lang/Object", but
 		// ClassPool wants the name to be like "java.lang.Object".
 		final String className = classNameWithSlashes.replace('/', '.');
-		LOG.debug("Finding contracts for '" + className + "'.");
+
+		if (Option.limit.isSet()
+				&& !Pattern.matches(Option.limit.getValue(), className)) {
+			return classfileBuffer;
+		}
+
+		LOG.info("Gathering contracts for {}.", className);
 		try {
 			final ClassPool pool = makePool(loader, classfileBuffer, className);
-
 			final CtClass targetClass = pool.get(className);
-			if (targetClass.isInterface()) {
-				// We're only instrumenting classes
-				return classfileBuffer;
-			}
-
-			if (!InstrumentorUtil.hasDBC(targetClass)) {
-				// DBC annotation absent or skip=true
-				return classfileBuffer;
-			}
 
 			// Make sure that all parents with contracts are instrumented first,
 			// so that their contracts are available to this class to use.
 			final List<CtClass> classHierarchy = InstrumentorUtil
 					.getParents(targetClass);
-			classHierarchy.add(0, targetClass);
 			for (int i = classHierarchy.size(); i-- > 0;) {
 				instrumentClass(classHierarchy.get(i), pool);
 			}
 
-			final byte[] result = instrumentedClasses.get(className);
-			if (result != null && cacheDirectory != null) {
+			final byte[] result = instrumentClass(targetClass, pool);
+			if (result == null) {
+				return classfileBuffer;
+			}
+
+			if (cacheDirectory != null) {
 				try {
 					final File f = new File(cacheDirectory, className
 							+ ".class");
@@ -185,6 +201,8 @@ public class Instrumentor implements ClassFileTransformer {
 			final ClassPool a_pool) throws NotFoundException,
 			CannotCompileException, IOException, ClassNotFoundException {
 		final String targetClassName = a_targetClass.getName();
+		final ClassInstrumentor classInstrumentor = new ClassInstrumentor(
+				a_targetClass, a_pool);
 
 		byte[] byteCode = instrumentedClasses.get(targetClassName);
 		if (byteCode != null) {
@@ -192,16 +210,18 @@ public class Instrumentor implements ClassFileTransformer {
 				LOG.debug("{} already instrumented.", targetClassName);
 				return byteCode;
 			}
-			a_targetClass.defrost();
+			a_targetClass.defrost(); // was frozen by toByteCode()
 		}
 
-		new ClassInstrumentor(a_targetClass, a_pool).instrument();
+		classInstrumentor.instrument();
 
 		if (a_targetClass.isModified()) {
 			byteCode = a_targetClass.toBytecode();
 			instrumentedClasses.put(targetClassName, byteCode);
+			LOG.info("Instrumented {}.", targetClassName);
+		} else {
+			LOG.info("Class not changed {}.", targetClassName);
 		}
-		LOG.debug("Instrumented {}.", targetClassName);
 		return byteCode;
 	}
 

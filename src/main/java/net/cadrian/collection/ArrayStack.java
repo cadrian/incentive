@@ -2,6 +2,9 @@ package net.cadrian.collection;
 
 import java.util.ArrayList;
 
+import net.cadrian.incentive.DBC;
+
+@DBC
 public class ArrayStack<G> implements Stack<G> {
 
 	private final ArrayList<G> items;

@@ -1,14 +1,29 @@
+/*
+ * Incentive, A Design By Contract framework for Java.
+ * Copyright (C) 2011 Cyril Adrian. All Rights Reserved.
+ * 
+ * Javaassist implementation based on C4J's 
+ * Copyright (C) 2006 Jonas Bergstr�m. All Rights Reserved.
+ *
+ * The contents of this file may be used under the terms of the GNU Lesser 
+ * General Public License Version 2.1 or later.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ */
 package net.cadrian.incentive.assist;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import javassist.CannotCompileException;
 import javassist.CtBehavior;
 import javassist.CtClass;
-import javassist.CtField;
 import javassist.CtMethod;
 import javassist.NotFoundException;
 import javassist.expr.Cast;
@@ -26,7 +41,7 @@ import net.cadrian.incentive.Pure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class InstrumentorUtil {
+class InstrumentorUtil {
 	private static final Logger LOG = LoggerFactory
 			.getLogger(InstrumentorUtil.class);
 
@@ -46,20 +61,19 @@ public class InstrumentorUtil {
 		return tmp[0];
 	}
 
-	public static boolean methodAnnotatedWithPure(final CtMethod method) {
-		try {
-			for (final Object annotation : method.getAnnotations()) {
-				if (annotation instanceof Pure) {
-					return true;
-				}
+	public static boolean methodAnnotatedWithPure(final CtMethod method)
+			throws ClassNotFoundException {
+		for (final Object annotation : method.getAnnotations()) {
+			if (annotation instanceof Pure) {
+				return true;
 			}
-		} catch (final ClassNotFoundException e) {
 		}
 		return false;
 	}
 
 	public static boolean isPure(final CtMethod method)
-			throws CannotCompileException, NotFoundException {
+			throws CannotCompileException, NotFoundException,
+			ClassNotFoundException {
 		if (methodAnnotatedWithPure(method)) {
 			return true;
 		}
@@ -73,11 +87,8 @@ public class InstrumentorUtil {
 			for (int i = 0; i < interfaces.size(); i++) {
 				final CtClass interfaze = interfaces.get(i);
 				CtMethod m = null;
-				try {
-					m = interfaze.getMethod(method.getName(),
-							method.getSignature());
-				} catch (final NotFoundException e) {
-				}
+				m = interfaze
+						.getMethod(method.getName(), method.getSignature());
 				if (m != null && methodAnnotatedWithPure(m)) {
 					return true;
 				}
@@ -132,36 +143,26 @@ public class InstrumentorUtil {
 		return tmp[0];
 	}
 
-	public static boolean methodExistsInClass(final CtClass clazz,
-			final String methodName, final String signature) {
-		for (final CtMethod method : clazz.getMethods()) {
-			if (method.getName().equals(methodName)
-					&& method.getSignature().equals(signature)) {
-				return true;
+	private static void addParents(final CtClass targetClass,
+			final Set<CtClass> parents) throws NotFoundException {
+		final CtClass parent = targetClass.getSuperclass();
+		if (parent != null && !parents.contains(parent)) {
+			parents.add(parent);
+			addParents(parent, parents);
+		}
+		for (final CtClass itf : targetClass.getInterfaces()) {
+			if (!parents.contains(itf)) {
+				parents.add(itf);
+				addParents(itf, parents);
 			}
 		}
-		return false;
-	}
-
-	public static boolean fieldExistsInClass(final CtClass clazz,
-			final String fieldName) {
-		for (final CtField field : clazz.getFields()) {
-			if (field.getName().equals(fieldName)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	public static List<CtClass> getParents(final CtClass targetClass)
 			throws NotFoundException {
-		final List<CtClass> parents = new LinkedList<CtClass>();
-		CtClass parent = targetClass.getSuperclass();
-		while (!parent.getName().equals("java.lang.Object")) {
-			parents.add(parent);
-			parent = parent.getSuperclass();
-		}
-		return parents;
+		final Set<CtClass> parents = new LinkedHashSet<CtClass>();
+		addParents(targetClass, parents);
+		return new ArrayList<CtClass>(parents);
 	}
 
 	static boolean hasDBC(final CtClass a_targetClass) {
@@ -193,5 +194,13 @@ public class InstrumentorUtil {
 			}
 		}
 		return result;
+	}
+
+	static String voidify(final String descriptor) {
+		final int index = descriptor.indexOf(')');
+		if (index < 0) {
+			return descriptor;
+		}
+		return String.format("%sV;", descriptor.substring(0, index + 1));
 	}
 }
