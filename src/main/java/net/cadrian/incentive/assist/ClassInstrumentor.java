@@ -169,13 +169,14 @@ class ClassInstrumentor {
 			// Note that in that case, the invariant flag is obviously false.
 			a_behavior.insertAfter(String.format("%s=true;",
 					INITIALIZED_FLAG_VAR));
-			code = String.format("%s=true;%s();%s=false;", INVARIANT_FLAG_VAR,
+			code = String.format("try{%s=true;%s();}finally{%s=false;}",
 					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
 					INVARIANT_FLAG_VAR);
 		} else {
 			// Only verify invariant if the instance has been fully created,
 			// hence the "if(...)"
-			code = String.format("if(%s&&!%s){%s=true;%s();%s=false;}",
+			code = String.format(
+					"if(%s&&!%s){try{%s=true;%s();}finally{%s=false;}}",
 					INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR,
 					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
 					INVARIANT_FLAG_VAR);
