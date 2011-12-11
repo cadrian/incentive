@@ -22,10 +22,12 @@ import java.util.List;
 import java.util.Set;
 
 import javassist.CannotCompileException;
+import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
 import javassist.CtMethod;
 import javassist.NotFoundException;
+import javassist.compiler.CompileError;
 import javassist.expr.Cast;
 import javassist.expr.ConstructorCall;
 import javassist.expr.ExprEditor;
@@ -176,21 +178,28 @@ class InstrumentorUtil {
 	}
 
 	static String parseAssertions(final String[] assertions,
+			final CtClass targetClass, final ClassPool pool,
 			final String errorClassName, final String errorMessage,
-			final TransformCodec... codecs) {
+			final TransformCodec... codecs) throws CannotCompileException,
+			CompileError {
 		final StringBuilder src = new StringBuilder();
 		for (final String assertion : assertions) {
-			src.append(String.format("if(!(%s)) throw new %s(\"%s\");",
-					transform(assertion, codecs), errorClassName, errorMessage));
+			src.append(String
+					.format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
+							transform(assertion, targetClass, pool, codecs),
+							errorClassName, errorMessage, errorClassName,
+							errorMessage));
 		}
 		return src.toString();
 	}
 
-	static String transform(final String src, final TransformCodec... codecs) {
+	static String transform(final String src, final CtClass targetClass,
+			final ClassPool pool, final TransformCodec... codecs)
+			throws CannotCompileException, CompileError {
 		String result = src;
 		if (codecs != null) {
 			for (final TransformCodec codec : codecs) {
-				result = codec.decode(result);
+				result = codec.decode(result, targetClass, pool);
 			}
 		}
 		return result;

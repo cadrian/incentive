@@ -34,6 +34,7 @@ import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.LoaderClassPath;
 import javassist.NotFoundException;
+import javassist.compiler.CompileError;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,28 +152,29 @@ public class Instrumentor implements ClassFileTransformer {
 				return classfileBuffer;
 			}
 
-			if (cacheDirectory != null) {
-				try {
-					final File f = new File(cacheDirectory, className
-							+ ".class");
-					f.createNewFile();
-					final OutputStream o = new FileOutputStream(f);
-					o.write(result);
-					o.flush();
-					o.close();
-					LOG.info("Wrote {} to file {}.", className, f);
-				} catch (final IOException e) {
-					e.printStackTrace();
-				}
-			}
+			writeToCache(className, result);
 			return result;
-		} catch (final NotFoundException e) {
-			LOG.error("Unable to load class: {}.", className, e);
-			LOG.debug("ClassLoader: {}.", loader);
 		} catch (final Exception e) {
 			LOG.error("Unable to load class: {}.", className, e);
+			LOG.debug("ClassLoader: {}.", loader);
 		}
 		return classfileBuffer;
+	}
+
+	void writeToCache(final String className, final byte[] result) {
+		if (cacheDirectory != null) {
+			try {
+				final File f = new File(cacheDirectory, className + ".class");
+				f.createNewFile();
+				final OutputStream o = new FileOutputStream(f);
+				o.write(result);
+				o.flush();
+				o.close();
+				LOG.info("Wrote {} to file {}.", className, f);
+			} catch (final IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	private ClassPool makePool(final ClassLoader loader,
@@ -199,10 +201,11 @@ public class Instrumentor implements ClassFileTransformer {
 
 	private byte[] instrumentClass(final CtClass a_targetClass,
 			final ClassPool a_pool) throws NotFoundException,
-			CannotCompileException, IOException, ClassNotFoundException {
+			CannotCompileException, IOException, ClassNotFoundException,
+			CompileError {
 		final String targetClassName = a_targetClass.getName();
 		final ClassInstrumentor classInstrumentor = new ClassInstrumentor(
-				a_targetClass, a_pool);
+				a_targetClass, a_pool, this);
 
 		byte[] byteCode = instrumentedClasses.get(targetClassName);
 		if (byteCode != null) {

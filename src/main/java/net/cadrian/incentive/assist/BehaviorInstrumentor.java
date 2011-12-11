@@ -15,14 +15,19 @@
  */
 package net.cadrian.incentive.assist;
 
+import java.io.IOException;
+
 import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
+import javassist.CtField;
+import javassist.CtMethod;
 import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
+import javassist.compiler.CompileError;
 import net.cadrian.incentive.Ensure;
 import net.cadrian.incentive.Require;
 import net.cadrian.incentive.error.EnsureError;
@@ -36,7 +41,14 @@ abstract class BehaviorInstrumentor {
 			.getLogger(BehaviorInstrumentor.class);
 
 	static final String OLD_LOCAL_VAR = "__incentive_old__";
-	private static final String OLD_LOCAL_TYPE = "java.util.ArrayList";
+
+	@SuppressWarnings("boxing")
+	static final String OLD_CLASS_NAME(final CtClass parent, final int index) {
+		return String.format("%s.__incentive_old_%s_%d__",
+				parent.getPackageName(), parent.getSimpleName(), index);
+	}
+
+	private final String oldClassName;
 
 	private static final String POSTCONDITION_ERROR_NAME = EnsureError.class
 			.getName();
@@ -49,53 +61,64 @@ abstract class BehaviorInstrumentor {
 
 	protected abstract CtClass getReturnType() throws NotFoundException;
 
-	protected abstract void addClassInvariantCall(final boolean before)
+	protected abstract CtBehavior getPrecursor() throws NotFoundException;
+
+	protected abstract void insertClassInvariantCall(final boolean before)
 			throws CannotCompileException, NotFoundException,
 			ClassNotFoundException;
 
 	protected final ClassInstrumentor classInstrumentor;
 	private final CtBehavior behavior;
 	private final ClassPool pool;
-	private final CtClass targetClass;
+	protected final CtClass targetClass;
+
+	final Instrumentor instrumentor;
+
+	private final CtClass oldValuesClass;
+	private CtMethod precondition;
+	private CtMethod postcondition;
 
 	public BehaviorInstrumentor(final ClassInstrumentor a_classInstrumentor,
-			final CtBehavior a_behavior, final ClassPool a_pool) {
+			final CtBehavior a_behavior, final ClassPool a_pool,
+			final int a_oldClassIndex) {
 		this.classInstrumentor = a_classInstrumentor;
+		this.instrumentor = a_classInstrumentor.instrumentor;
 		this.behavior = a_behavior;
 		this.pool = a_pool;
 		this.targetClass = a_behavior.getDeclaringClass();
+		this.oldClassName = OLD_CLASS_NAME(targetClass, a_oldClassIndex);
+		this.oldValuesClass = pool.makeClass(oldClassName);
 	}
 
 	void instrument() throws CannotCompileException, NotFoundException,
-			ClassNotFoundException {
-		addPreconditionMethod();
-		addPostconditionMethod();
-		addClassInvariantCall(true);
-		addMethodPreconditionCall();
-		addMethodPostconditionCall();
-		addClassInvariantCall(false);
+			ClassNotFoundException, CompileError, IOException {
+		definePreconditionMethod();
+		definePostconditionMethod();
+
+		// NOTE! insert() adds code at the very start of the bytecode block;
+		// hence insert the precondition check before the invariant check
+		insertMethodPreconditionCall();
+		insertClassInvariantCall(true);
+
+		insertMethodPostconditionCall();
+		insertClassInvariantCall(false);
 	}
 
-	public String makePreconditionSignature() {
-		return Descriptor.changeReturnType(OLD_LOCAL_TYPE,
-				behavior.getSignature());
-	}
-
-	private boolean addMethodPreconditionCall() throws CannotCompileException {
-		final String req = getPreconditionName();
-		try {
-			final String preconditionSignature = makePreconditionSignature();
-			targetClass.getMethod(req, preconditionSignature);
-			if (InstrumentorUtil.instrumentedWith(behavior, req,
-					preconditionSignature)
-					|| Modifier.isAbstract(behavior.getModifiers())) {
-				return false;
-			}
-		} catch (final NotFoundException x) {
+	private boolean insertMethodPreconditionCall()
+			throws CannotCompileException {
+		if (precondition == null
+				|| InstrumentorUtil.instrumentedWith(behavior,
+						precondition.getName(), precondition.getSignature())
+				|| Modifier.isAbstract(behavior.getModifiers())) {
+			LOG.info(" ** precondition not added to {}", behavior.getName());
 			return false;
 		}
-		behavior.insertBefore(String.format("final %s = %s($$);",
-				OLD_LOCAL_VAR, req));
+		final String code = String
+				.format("final %s %s = %s($$);", oldValuesClass.getName(),
+						OLD_LOCAL_VAR, precondition.getName());
+		behavior.insertBefore(code);
+		LOG.info(" ** added precondition call to {}: {}", behavior.getName(),
+				code);
 		return true;
 	}
 
@@ -103,109 +126,186 @@ abstract class BehaviorInstrumentor {
 		final CtClass returnType = getReturnType();
 		final String voidDescriptor = InstrumentorUtil.voidify(behavior
 				.getSignature());
-		final String returnDescriptor = returnType == CtClass.voidType ? voidDescriptor
-				: Descriptor.insertParameter(returnType, voidDescriptor);
-		return Descriptor.insertParameter(OLD_LOCAL_TYPE, returnDescriptor);
+		final String returnDescriptor = Descriptor.insertParameter(
+				returnType == CtClass.voidType ? CtClass.intType : returnType,
+				voidDescriptor);
+		return Descriptor.insertParameter(oldClassName, returnDescriptor);
 	}
 
-	private boolean addMethodPostconditionCall() throws CannotCompileException,
-			NotFoundException {
-		final String ens = getPostconditionName();
-		try {
-			final String postconditionSignature = makePostconditionSignature();
-			targetClass.getMethod(ens, postconditionSignature);
-			if (InstrumentorUtil.instrumentedWith(behavior, ens,
-					postconditionSignature)
-					|| Modifier.isAbstract(behavior.getModifiers())) {
-				return false;
-			}
-		} catch (final NotFoundException x) {
+	private boolean insertMethodPostconditionCall()
+			throws CannotCompileException, NotFoundException {
+		if (postcondition == null
+				|| InstrumentorUtil.instrumentedWith(behavior,
+						postcondition.getName(), postcondition.getSignature())
+				|| Modifier.isAbstract(behavior.getModifiers())) {
+			LOG.info(" ** postcondition not added to {}", behavior.getName());
 			return false;
 		}
-		behavior.insertAfter(String.format("%s(%s%s,$$);", ens, OLD_LOCAL_VAR,
-				getReturnType() == CtClass.voidType ? "" : ",$_"));
+		final String code = String.format("%s(%s,%s,$$);", postcondition
+				.getName(), precondition == null ? "null" : OLD_LOCAL_VAR,
+				getReturnType() == CtClass.voidType ? "0" : "$_");
+		behavior.insertAfter(code, true);
+		LOG.info(" ** added postcondition call to {}: {}", behavior.getName(),
+				code);
 		return true;
 	}
 
-	private void addPreconditionMethod() throws CannotCompileException,
-			NotFoundException, ClassNotFoundException {
-		final StringBuilder src = new StringBuilder("{").append(
-				RequireError.class.getName()).append(" err=null;");
+	private void definePreconditionMethod() throws CannotCompileException,
+			NotFoundException, ClassNotFoundException, CompileError,
+			IOException {
+		final StringBuilder src = new StringBuilder(String.format(
+				"{%s err=null;\n", RequireError.class.getName()));
+		fillPreconditionClass();
+		src.append(String.format("%s %s = new %s();\n", oldClassName,
+				OLD_LOCAL_VAR, oldClassName));
+		addPreconditionOld(src);
 		addPreconditionCode(src);
-		src.append("if(err!=null)throw err;}");
+		src.append(String.format("if(err!=null)throw err;\nreturn %s;\n}",
+				OLD_LOCAL_VAR));
 		final String code = src.toString();
-		LOG.info("Adding {}: {}", getPreconditionName(), code);
-		targetClass.addMethod(CtNewMethod.make(CtClass.voidType,
-				getPreconditionName(), behavior.getParameterTypes(),
-				new CtClass[0], code, targetClass));
+		precondition = CtNewMethod
+				.make(oldValuesClass, getPreconditionName(),
+						behavior.getParameterTypes(), new CtClass[0], code,
+						targetClass);
+		LOG.info("Precondition of {} is {}{}",
+				new Object[] { behavior.getLongName(), precondition, code });
+		targetClass.addMethod(precondition);
 	}
 
-	private void addPreconditionCode(final StringBuilder src)
-			throws ClassNotFoundException {
+	private void fillPreconditionClass() throws ClassNotFoundException,
+			NotFoundException, CannotCompileException, CompileError,
+			IOException {
+		oldValuesClass.setModifiers(Modifier.FINAL);
+		addPreconditionClassFields(oldValuesClass);
+		instrumentor.writeToCache(oldClassName, oldValuesClass.toBytecode());
+
+		LOG.info("OLD CLASS package: {} -- name: {}",
+				oldValuesClass.getPackageName(), oldValuesClass.getSimpleName());
+		for (final CtField field : oldValuesClass.getFields()) {
+			LOG.info(" --> {} {}", field.getType().getName(), field.getName());
+		}
+
+	}
+
+	private void addPreconditionClassFields(final CtClass a_preconditionClass)
+			throws ClassNotFoundException, NotFoundException,
+			CannotCompileException, CompileError {
 		for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
 			final BehaviorInstrumentor parentBehavior = parent
 					.getBehavior(getKey());
 			if (parentBehavior != null) {
-				src.append("try{");
-				parentBehavior.addPreconditionCode(src);
-				src.append(String.format(
-						"return;}catch(%s x){err=new %s(\"%s\",x);}",
-						PRECONDITION_ERROR_NAME, PRECONDITION_ERROR_NAME,
-						parentBehavior.getName()));
+				parentBehavior.addPreconditionClassFields(a_preconditionClass);
 			}
 		}
 
-		final Require require = (Require) targetClass
-				.getAnnotation(Require.class);
-		if (require != null) {
-			src.append(InstrumentorUtil.parseAssertions(require.value(),
-					PRECONDITION_ERROR_NAME, getName(),
-					TransformCodecs.PRECONDITION_ARGUMENTS_CODEC));
-		}
-
-		final Ensure ensure = (Ensure) targetClass.getAnnotation(Ensure.class);
+		final Ensure ensure = (Ensure) getPrecursor().getAnnotation(
+				Ensure.class);
 		if (ensure != null) {
 			for (final String assertion : ensure.value()) {
-				src.append(InstrumentorUtil.transform(assertion,
-						TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
+				InstrumentorUtil
+						.transform(
+								assertion,
+								targetClass,
+								pool,
+								TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
+								TransformCodecs
+										.PRECONDITION_OLD_CLASS_CODEC(a_preconditionClass));
+			}
+		}
+	}
+
+	private void addPreconditionOld(final StringBuilder src)
+			throws ClassNotFoundException, NotFoundException,
+			CannotCompileException, CompileError {
+		for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
+			final BehaviorInstrumentor parentBehavior = parent
+					.getBehavior(getKey());
+			if (parentBehavior != null) {
+				parentBehavior.addPreconditionOld(src);
+			}
+		}
+
+		final Ensure ensure = (Ensure) getPrecursor().getAnnotation(
+				Ensure.class);
+		if (ensure != null) {
+			for (final String assertion : ensure.value()) {
+				src.append(InstrumentorUtil.transform(assertion, targetClass,
+						pool, TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
 						TransformCodecs.PRECONDITION_OLD_VALUES_CODEC));
 			}
 		}
+	}
+
+	private boolean addPreconditionCode(final StringBuilder src)
+			throws ClassNotFoundException, NotFoundException,
+			CannotCompileException, CompileError {
+		boolean result = false;
+		for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
+			final BehaviorInstrumentor parentBehavior = parent
+					.getBehavior(getKey());
+			if (parentBehavior != null) {
+				final int srcLength = src.length();
+				src.append("try{");
+				final boolean hasRequire = parentBehavior
+						.addPreconditionCode(src);
+				if (hasRequire) {
+					src.append(String.format(
+							"return;}\ncatch(%s x){err=new %s(\"%s\",x);}\n",
+							PRECONDITION_ERROR_NAME, PRECONDITION_ERROR_NAME,
+							parentBehavior.getName()));
+				} else {
+					src.setLength(srcLength);
+				}
+			}
+		}
+
+		final Require require = (Require) getPrecursor().getAnnotation(
+				Require.class);
+		if (require != null) {
+			src.append(InstrumentorUtil.parseAssertions(require.value(),
+					targetClass, pool, PRECONDITION_ERROR_NAME, getName(),
+					TransformCodecs.PRECONDITION_ARGUMENTS_CODEC));
+			result = true;
+		}
+
+		return result;
 	}
 
 	private String getName() {
 		return behavior.getLongName();
 	}
 
-	private void addPostconditionMethod() throws CannotCompileException,
-			NotFoundException, ClassNotFoundException {
+	private void definePostconditionMethod() throws CannotCompileException,
+			NotFoundException, ClassNotFoundException, CompileError {
 		final StringBuilder src = new StringBuilder("{");
 		addPostconditionCode(src);
 		src.append('}');
 		final CtClass[] params;
 		final CtClass[] params0 = behavior.getParameterTypes();
-		final int extraParamCount = getReturnType() == CtClass.voidType ? 1 : 2;
 		if (params0 == null) {
-			params = new CtClass[extraParamCount];
+			params = new CtClass[2];
 		} else {
-			params = new CtClass[params0.length + extraParamCount];
-			System.arraycopy(params0, 0, params, extraParamCount,
-					params0.length);
+			params = new CtClass[params0.length + 2];
+			System.arraycopy(params0, 0, params, 2, params0.length);
 		}
-		params[0] = pool.get(OLD_LOCAL_TYPE);
-		if (extraParamCount == 2) {
-			params[1] = getReturnType();
+		params[0] = oldValuesClass;
+		params[1] = getReturnType();
+		if (params[1] == CtClass.voidType) {
+			params[1] = CtClass.intType;
 		}
 
 		final String code = src.toString();
-		LOG.info("Postcondition of {} is {}", behavior.getLongName(), code);
-		targetClass.addMethod(CtNewMethod.make(CtClass.voidType,
+		postcondition = CtNewMethod.make(CtClass.voidType,
 				getPostconditionName(), params, new CtClass[0], code,
-				targetClass));
+				targetClass);
+		LOG.info("Postcondition of {} is {}{}",
+				new Object[] { behavior.getLongName(), postcondition, code });
+		targetClass.addMethod(postcondition);
 	}
 
 	private void addPostconditionCode(final StringBuilder src)
-			throws ClassNotFoundException {
+			throws ClassNotFoundException, NotFoundException,
+			CannotCompileException, CompileError {
 		for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
 			final BehaviorInstrumentor parentBehavior = parent
 					.getBehavior(getKey());
@@ -213,10 +313,11 @@ abstract class BehaviorInstrumentor {
 				parentBehavior.addPostconditionCode(src);
 			}
 		}
-		final Ensure ensure = (Ensure) targetClass.getAnnotation(Ensure.class);
+		final Ensure ensure = (Ensure) getPrecursor().getAnnotation(
+				Ensure.class);
 		if (ensure != null) {
 			src.append(InstrumentorUtil.parseAssertions(ensure.value(),
-					POSTCONDITION_ERROR_NAME, getName(),
+					targetClass, pool, POSTCONDITION_ERROR_NAME, getName(),
 					TransformCodecs.POSTCONDITION_RESULT_CODEC,
 					TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC,
 					TransformCodecs.POSTCONDITION_OLD_VALUES_CODEC));

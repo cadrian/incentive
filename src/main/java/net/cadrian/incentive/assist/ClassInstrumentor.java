@@ -15,6 +15,7 @@
  */
 package net.cadrian.incentive.assist;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +31,7 @@ import javassist.CtMethod;
 import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
+import javassist.compiler.CompileError;
 import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.error.InvariantError;
 
@@ -54,14 +56,19 @@ class ClassInstrumentor {
 	private final List<ConstructorInstrumentor> constructors;
 	private final Map<String, BehaviorInstrumentor> behaviors;
 
-	public ClassInstrumentor(final CtClass targetClass, final ClassPool pool)
-			throws NotFoundException {
+	final Instrumentor instrumentor;
+
+	private int oldClassIndex = 0;
+
+	public ClassInstrumentor(final CtClass targetClass, final ClassPool pool,
+			final Instrumentor instrumentor) throws NotFoundException {
+		this.instrumentor = instrumentor;
 		this.targetClass = targetClass;
 		this.pool = pool;
 
 		parents = new ArrayList<ClassInstrumentor>();
 		for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
-			parents.add(new ClassInstrumentor(parent, pool));
+			parents.add(new ClassInstrumentor(parent, pool, instrumentor));
 		}
 
 		behaviors = new HashMap<String, BehaviorInstrumentor>();
@@ -69,7 +76,7 @@ class ClassInstrumentor {
 		methods = new ArrayList<MethodInstrumentor>();
 		for (final CtMethod targetMethod : targetClass.getDeclaredMethods()) {
 			final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(
-					this, targetMethod, pool);
+					this, targetMethod, pool, oldClassIndex++);
 			methods.add(methodInstrumentor);
 			behaviors.put(methodInstrumentor.getKey(), methodInstrumentor);
 		}
@@ -78,7 +85,7 @@ class ClassInstrumentor {
 		int i = 0;
 		for (final CtConstructor constructor : targetClass.getConstructors()) {
 			final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(
-					this, constructor, i++, pool);
+					this, constructor, i++, pool, oldClassIndex++);
 			constructors.add(constructorInstrumentor);
 			behaviors.put(constructorInstrumentor.getKey(),
 					constructorInstrumentor);
@@ -102,7 +109,7 @@ class ClassInstrumentor {
 	}
 
 	void instrument() throws CannotCompileException, NotFoundException,
-			ClassNotFoundException {
+			ClassNotFoundException, CompileError, IOException {
 		for (final ClassInstrumentor parent : parents) {
 			parent.instrument();
 		}
@@ -136,10 +143,9 @@ class ClassInstrumentor {
 		try {
 			targetClass.getField(flagName);
 		} catch (final NotFoundException x) {
-			final String code = String.format("private boolean %s=false;",
-					flagName);
-			LOG.info("Adding to {}: {}", targetClass.getName(), code);
-			final CtField flagField = CtField.make(code, targetClass);
+			final CtField flagField = new CtField(CtClass.booleanType,
+					flagName, targetClass);
+			flagField.setModifiers(Modifier.PRIVATE);
 			targetClass.addField(flagField);
 		}
 	}
@@ -194,9 +200,9 @@ class ClassInstrumentor {
 	}
 
 	private void addInvariantMethod() throws CannotCompileException,
-			ClassNotFoundException {
+			ClassNotFoundException, CompileError {
 		final StringBuilder src = new StringBuilder(String.format(
-				"private void %s() {", INVARIANT_METHOD_NAME));
+				"private void %s() {\n", INVARIANT_METHOD_NAME));
 		addInvariantCode(src);
 		src.append('}');
 		final String code = src.toString();
@@ -205,7 +211,7 @@ class ClassInstrumentor {
 	}
 
 	private void addInvariantCode(final StringBuilder src)
-			throws ClassNotFoundException {
+			throws ClassNotFoundException, CannotCompileException, CompileError {
 		for (final ClassInstrumentor parent : parents) {
 			parent.addInvariantCode(src);
 		}
@@ -213,7 +219,7 @@ class ClassInstrumentor {
 				.getAnnotation(Invariant.class);
 		if (invariant != null) {
 			src.append(InstrumentorUtil.parseAssertions(invariant.value(),
-					INVARIANT_ERROR_NAME, getName()));
+					targetClass, pool, INVARIANT_ERROR_NAME, getName()));
 		}
 	}
 

@@ -15,8 +15,14 @@
  */
 package net.cadrian.incentive.assist;
 
+import javassist.CannotCompileException;
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.compiler.CompileError;
+
 interface TransformCodec {
 
-	String decode(String assertion);
+	String decode(final String assertion, final CtClass targetClass,
+			final ClassPool pool) throws CannotCompileException, CompileError;
 
 }

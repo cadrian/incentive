@@ -17,6 +17,7 @@ package net.cadrian.incentive.assist;
 
 import javassist.CannotCompileException;
 import javassist.ClassPool;
+import javassist.CtBehavior;
 import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.NotFoundException;
@@ -37,8 +38,8 @@ class ConstructorInstrumentor extends BehaviorInstrumentor {
 
 	public ConstructorInstrumentor(final ClassInstrumentor a_classInstrumentor,
 			final CtConstructor a_constructor, final int a_index,
-			final ClassPool a_pool) {
-		super(a_classInstrumentor, a_constructor, a_pool);
+			final ClassPool a_pool, final int oldClassIndex) {
+		super(a_classInstrumentor, a_constructor, a_pool, oldClassIndex);
 		this.constructor = a_constructor;
 		this.index = a_index;
 	}
@@ -59,11 +60,16 @@ class ConstructorInstrumentor extends BehaviorInstrumentor {
 	}
 
 	@Override
-	protected void addClassInvariantCall(final boolean before)
+	protected void insertClassInvariantCall(final boolean before)
 			throws CannotCompileException, NotFoundException {
 		if (!before) {
 			classInstrumentor.addClassInvariantCall(constructor, false, true);
 		}
+	}
+
+	@Override
+	protected CtBehavior getPrecursor() throws NotFoundException {
+		return targetClass.getConstructor(constructor.getSignature());
 	}
 
 }
