@@ -20,6 +20,7 @@ import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
 import javassist.CtMethod;
+import javassist.Modifier;
 import javassist.NotFoundException;
 
 class MethodInstrumentor extends BehaviorInstrumentor {
@@ -67,6 +68,17 @@ class MethodInstrumentor extends BehaviorInstrumentor {
 	@Override
 	protected CtBehavior getPrecursor() throws NotFoundException {
 		return targetClass.getMethod(method.getName(), method.getSignature());
+	}
+
+	@Override
+	protected void insertBeforeBody(final String a_code)
+			throws CannotCompileException {
+		method.insertBefore(a_code);
+	}
+
+	@Override
+	protected void setPreconditionModifiers(final CtMethod a_precondition) {
+		a_precondition.setModifiers(Modifier.FINAL);
 	}
 
 }

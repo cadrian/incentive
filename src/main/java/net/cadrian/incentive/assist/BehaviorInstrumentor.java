@@ -21,7 +21,6 @@ import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
-import javassist.CtField;
 import javassist.CtMethod;
 import javassist.CtNewMethod;
 import javassist.Modifier;
@@ -40,11 +39,11 @@ abstract class BehaviorInstrumentor {
 	private static final Logger LOG = LoggerFactory
 			.getLogger(BehaviorInstrumentor.class);
 
-	static final String OLD_LOCAL_VAR = "__incentive_old__";
+	private static final String OLD_LOCAL_VAR = "__incentive_old__";
 
 	@SuppressWarnings("boxing")
 	static final String OLD_CLASS_NAME(final CtClass parent, final int index) {
-		return String.format("%s.__incentive_old_%s_%d__",
+		return String.format("%s.__incentive_%s_old%d__",
 				parent.getPackageName(), parent.getSimpleName(), index);
 	}
 
@@ -67,6 +66,11 @@ abstract class BehaviorInstrumentor {
 			throws CannotCompileException, NotFoundException,
 			ClassNotFoundException;
 
+	protected abstract void insertBeforeBody(String a_code)
+			throws CannotCompileException;
+
+	protected abstract void setPreconditionModifiers(CtMethod a_precondition);
+
 	protected final ClassInstrumentor classInstrumentor;
 	private final CtBehavior behavior;
 	private final ClassPool pool;
@@ -87,7 +91,8 @@ abstract class BehaviorInstrumentor {
 		this.pool = a_pool;
 		this.targetClass = a_behavior.getDeclaringClass();
 		this.oldClassName = OLD_CLASS_NAME(targetClass, a_oldClassIndex);
-		this.oldValuesClass = pool.makeClass(oldClassName);
+		this.oldValuesClass = targetClass.isFrozen() ? null : pool
+				.makeClass(oldClassName);
 	}
 
 	void instrument() throws CannotCompileException, NotFoundException,
@@ -106,6 +111,8 @@ abstract class BehaviorInstrumentor {
 
 	private boolean insertMethodPreconditionCall()
 			throws CannotCompileException {
+		LOG.info("-- now adding precondition call to {}",
+				behavior.getLongName());
 		if (precondition == null
 				|| InstrumentorUtil.instrumentedWith(behavior,
 						precondition.getName(), precondition.getSignature())
@@ -113,9 +120,9 @@ abstract class BehaviorInstrumentor {
 			LOG.info(" ** precondition not added to {}", behavior.getName());
 			return false;
 		}
-		final String code = String
-				.format("final %s %s = %s($$);", oldValuesClass.getName(),
-						OLD_LOCAL_VAR, precondition.getName());
+		behavior.addLocalVariable(OLD_LOCAL_VAR, oldValuesClass);
+		final String code = String.format("%s = %s($$);", OLD_LOCAL_VAR,
+				precondition.getName());
 		behavior.insertBefore(code);
 		LOG.info(" ** added precondition call to {}: {}", behavior.getName(),
 				code);
@@ -134,6 +141,8 @@ abstract class BehaviorInstrumentor {
 
 	private boolean insertMethodPostconditionCall()
 			throws CannotCompileException, NotFoundException {
+		LOG.info("-- now adding postcondition call to {}",
+				behavior.getLongName());
 		if (postcondition == null
 				|| InstrumentorUtil.instrumentedWith(behavior,
 						postcondition.getName(), postcondition.getSignature())
@@ -144,7 +153,7 @@ abstract class BehaviorInstrumentor {
 		final String code = String.format("%s(%s,%s,$$);", postcondition
 				.getName(), precondition == null ? "null" : OLD_LOCAL_VAR,
 				getReturnType() == CtClass.voidType ? "0" : "$_");
-		behavior.insertAfter(code, true);
+		behavior.insertAfter(code);
 		LOG.info(" ** added postcondition call to {}: {}", behavior.getName(),
 				code);
 		return true;
@@ -156,12 +165,11 @@ abstract class BehaviorInstrumentor {
 		final StringBuilder src = new StringBuilder(String.format(
 				"{%s err=null;\n", RequireError.class.getName()));
 		fillPreconditionClass();
-		src.append(String.format("%s %s = new %s();\n", oldClassName,
-				OLD_LOCAL_VAR, oldClassName));
+		src.append(String.format("final %s result = new %s();\n", oldClassName,
+				oldClassName));
 		addPreconditionOld(src);
 		addPreconditionCode(src);
-		src.append(String.format("if(err!=null)throw err;\nreturn %s;\n}",
-				OLD_LOCAL_VAR));
+		src.append("if(err!=null)throw err;\nreturn result;\n}");
 		final String code = src.toString();
 		precondition = CtNewMethod
 				.make(oldValuesClass, getPreconditionName(),
@@ -169,6 +177,7 @@ abstract class BehaviorInstrumentor {
 						targetClass);
 		LOG.info("Precondition of {} is {}{}",
 				new Object[] { behavior.getLongName(), precondition, code });
+		setPreconditionModifiers(precondition);
 		targetClass.addMethod(precondition);
 	}
 
@@ -178,13 +187,7 @@ abstract class BehaviorInstrumentor {
 		oldValuesClass.setModifiers(Modifier.FINAL);
 		addPreconditionClassFields(oldValuesClass);
 		instrumentor.writeToCache(oldClassName, oldValuesClass.toBytecode());
-
-		LOG.info("OLD CLASS package: {} -- name: {}",
-				oldValuesClass.getPackageName(), oldValuesClass.getSimpleName());
-		for (final CtField field : oldValuesClass.getFields()) {
-			LOG.info(" --> {} {}", field.getType().getName(), field.getName());
-		}
-
+		oldValuesClass.toClass(); // to load it in the JVM
 	}
 
 	private void addPreconditionClassFields(final CtClass a_preconditionClass)
@@ -250,9 +253,8 @@ abstract class BehaviorInstrumentor {
 						.addPreconditionCode(src);
 				if (hasRequire) {
 					src.append(String.format(
-							"return;}\ncatch(%s x){err=new %s(\"%s\",x);}\n",
-							PRECONDITION_ERROR_NAME, PRECONDITION_ERROR_NAME,
-							parentBehavior.getName()));
+							"return result;}\ncatch(%s x){err=x;}\n",
+							PRECONDITION_ERROR_NAME));
 				} else {
 					src.setLength(srcLength);
 				}

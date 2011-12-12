@@ -91,8 +91,7 @@ final class TransformCodecs {
 			int i = 0;
 			while (matcher.find()) {
 				final String src = matcher.group(1);
-				result.append(String.format("%s.old%d = (%s);\n",
-						BehaviorInstrumentor.OLD_LOCAL_VAR, i++, src));
+				result.append(String.format("result.old%d = (%s);\n", i++, src));
 			}
 
 			return result.toString();

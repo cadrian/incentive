@@ -20,6 +20,8 @@ import javassist.ClassPool;
 import javassist.CtBehavior;
 import javassist.CtClass;
 import javassist.CtConstructor;
+import javassist.CtMethod;
+import javassist.Modifier;
 import javassist.NotFoundException;
 
 class ConstructorInstrumentor extends BehaviorInstrumentor {
@@ -70,6 +72,17 @@ class ConstructorInstrumentor extends BehaviorInstrumentor {
 	@Override
 	protected CtBehavior getPrecursor() throws NotFoundException {
 		return targetClass.getConstructor(constructor.getSignature());
+	}
+
+	@Override
+	protected void insertBeforeBody(final String a_code)
+			throws CannotCompileException {
+		constructor.insertBeforeBody(a_code);
+	}
+
+	@Override
+	protected void setPreconditionModifiers(final CtMethod a_precondition) {
+		a_precondition.setModifiers(Modifier.FINAL | Modifier.STATIC);
 	}
 
 }
