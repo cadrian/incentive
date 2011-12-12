@@ -116,14 +116,14 @@ class ClassInstrumentor {
 
 		if (targetClass.isInterface()) {
 			// We're only instrumenting classes
-			LOG.info("{} is an interface: not instrumented",
+			LOG.debug("{} is an interface: not instrumented",
 					targetClass.getName());
 			return;
 		}
 
 		if (!InstrumentorUtil.hasDBC(targetClass)) {
 			// DBC annotation absent or skip=true
-			LOG.info("{} has no DBC, or skipped", targetClass.getName());
+			LOG.debug("{} has no DBC, or skipped", targetClass.getName());
 			return;
 		}
 
@@ -188,7 +188,7 @@ class ClassInstrumentor {
 					INVARIANT_FLAG_VAR);
 		}
 
-		LOG.info("Adding {} {}: {}", new String[] {
+		LOG.debug("Adding {} {}: {}", new String[] {
 				before ? "before" : "after", a_behavior.getName(), code });
 
 		if (before) {
@@ -206,7 +206,7 @@ class ClassInstrumentor {
 		addInvariantCode(src);
 		src.append('}');
 		final String code = src.toString();
-		LOG.info("Adding to {}: {}", targetClass.getName(), code);
+		LOG.debug("Adding to {}: {}", targetClass.getName(), code);
 		targetClass.addMethod(CtNewMethod.make(code, targetClass));
 	}
 

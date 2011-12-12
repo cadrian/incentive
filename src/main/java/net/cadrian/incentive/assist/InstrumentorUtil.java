@@ -172,7 +172,7 @@ class InstrumentorUtil {
 			final DBC dbc = (DBC) a_targetClass.getAnnotation(DBC.class);
 			return dbc != null && !dbc.skip();
 		} catch (final ClassNotFoundException cnfx) {
-			LOG.warn("class not found", cnfx);
+			LOG.warn("class not found???", cnfx);
 		}
 		return false;
 	}

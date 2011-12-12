@@ -61,7 +61,7 @@ public class Instrumentor implements ClassFileTransformer {
 	 * @param ins
 	 */
 	public static void premain(final String options, final Instrumentation ins) {
-		LOG.info("Starting Incentive...");
+		LOG.debug("Starting Incentive...");
 		ins.addTransformer(new Instrumentor(options));
 		LOG.debug("Incentive started.");
 	}
@@ -76,7 +76,7 @@ public class Instrumentor implements ClassFileTransformer {
 				if (!classfileDir.exists()) {
 					classfileDir.mkdirs();
 				}
-				LOG.info(
+				LOG.debug(
 						"Using cache directory for instrumented class files: {}",
 						classfileDir);
 			}
@@ -134,7 +134,7 @@ public class Instrumentor implements ClassFileTransformer {
 			return classfileBuffer;
 		}
 
-		LOG.info("Gathering contracts for {}.", className);
+		LOG.debug("Gathering contracts for {}.", className);
 		try {
 			final ClassPool pool = makePool(loader, classfileBuffer, className);
 			final CtClass targetClass = pool.get(className);
@@ -170,7 +170,7 @@ public class Instrumentor implements ClassFileTransformer {
 				o.write(result);
 				o.flush();
 				o.close();
-				LOG.info("Wrote {} to file {}.", className, f);
+				LOG.debug("Wrote {} to file {}.", className, f);
 			} catch (final IOException e) {
 				e.printStackTrace();
 			}
@@ -221,9 +221,9 @@ public class Instrumentor implements ClassFileTransformer {
 		if (a_targetClass.isModified()) {
 			byteCode = a_targetClass.toBytecode();
 			instrumentedClasses.put(targetClassName, byteCode);
-			LOG.info("Instrumented {}.", targetClassName);
+			LOG.debug("Instrumented {}.", targetClassName);
 		} else {
-			LOG.info("Class not changed {}.", targetClassName);
+			LOG.debug("Class not changed {}.", targetClassName);
 		}
 		return byteCode;
 	}

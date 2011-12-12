@@ -71,12 +71,6 @@ class MethodInstrumentor extends BehaviorInstrumentor {
 	}
 
 	@Override
-	protected void insertBeforeBody(final String a_code)
-			throws CannotCompileException {
-		method.insertBefore(a_code);
-	}
-
-	@Override
 	protected void setPreconditionModifiers(final CtMethod a_precondition) {
 		a_precondition.setModifiers(Modifier.FINAL);
 	}

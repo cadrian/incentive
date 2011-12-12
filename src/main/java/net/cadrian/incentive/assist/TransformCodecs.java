@@ -29,19 +29,12 @@ import javassist.compiler.Parser;
 import javassist.compiler.SymbolTable;
 import javassist.compiler.ast.ASTree;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 final class TransformCodecs {
-	static final Logger LOG = LoggerFactory.getLogger(TransformCodecs.class);
-
 	private TransformCodecs() {
 	}
 
 	static final Pattern RESULT_REGEXP = Pattern.compile("\\{result\\}");
-
 	static final Pattern OLD_REGEXP = Pattern.compile("\\{old\\s+([^}]+)\\}");
-
 	static final Pattern ARG_REGEXP = Pattern
 			.compile("\\{arg\\s+([1-9][0-9]*)\\}");
 

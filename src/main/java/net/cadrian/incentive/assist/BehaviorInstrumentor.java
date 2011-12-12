@@ -66,9 +66,6 @@ abstract class BehaviorInstrumentor {
 			throws CannotCompileException, NotFoundException,
 			ClassNotFoundException;
 
-	protected abstract void insertBeforeBody(String a_code)
-			throws CannotCompileException;
-
 	protected abstract void setPreconditionModifiers(CtMethod a_precondition);
 
 	protected final ClassInstrumentor classInstrumentor;
@@ -111,20 +108,20 @@ abstract class BehaviorInstrumentor {
 
 	private boolean insertMethodPreconditionCall()
 			throws CannotCompileException {
-		LOG.info("-- now adding precondition call to {}",
+		LOG.debug("-- now adding precondition call to {}",
 				behavior.getLongName());
 		if (precondition == null
 				|| InstrumentorUtil.instrumentedWith(behavior,
 						precondition.getName(), precondition.getSignature())
 				|| Modifier.isAbstract(behavior.getModifiers())) {
-			LOG.info(" ** precondition not added to {}", behavior.getName());
+			LOG.debug(" ** precondition not added to {}", behavior.getName());
 			return false;
 		}
 		behavior.addLocalVariable(OLD_LOCAL_VAR, oldValuesClass);
 		final String code = String.format("%s = %s($$);", OLD_LOCAL_VAR,
 				precondition.getName());
 		behavior.insertBefore(code);
-		LOG.info(" ** added precondition call to {}: {}", behavior.getName(),
+		LOG.debug(" ** added precondition call to {}: {}", behavior.getName(),
 				code);
 		return true;
 	}
@@ -141,20 +138,20 @@ abstract class BehaviorInstrumentor {
 
 	private boolean insertMethodPostconditionCall()
 			throws CannotCompileException, NotFoundException {
-		LOG.info("-- now adding postcondition call to {}",
+		LOG.debug("-- now adding postcondition call to {}",
 				behavior.getLongName());
 		if (postcondition == null
 				|| InstrumentorUtil.instrumentedWith(behavior,
 						postcondition.getName(), postcondition.getSignature())
 				|| Modifier.isAbstract(behavior.getModifiers())) {
-			LOG.info(" ** postcondition not added to {}", behavior.getName());
+			LOG.debug(" ** postcondition not added to {}", behavior.getName());
 			return false;
 		}
 		final String code = String.format("%s(%s,%s,$$);", postcondition
 				.getName(), precondition == null ? "null" : OLD_LOCAL_VAR,
 				getReturnType() == CtClass.voidType ? "0" : "$_");
 		behavior.insertAfter(code);
-		LOG.info(" ** added postcondition call to {}: {}", behavior.getName(),
+		LOG.debug(" ** added postcondition call to {}: {}", behavior.getName(),
 				code);
 		return true;
 	}
@@ -175,7 +172,7 @@ abstract class BehaviorInstrumentor {
 				.make(oldValuesClass, getPreconditionName(),
 						behavior.getParameterTypes(), new CtClass[0], code,
 						targetClass);
-		LOG.info("Precondition of {} is {}{}",
+		LOG.debug("Precondition of {} is {}{}",
 				new Object[] { behavior.getLongName(), precondition, code });
 		setPreconditionModifiers(precondition);
 		targetClass.addMethod(precondition);
@@ -300,7 +297,7 @@ abstract class BehaviorInstrumentor {
 		postcondition = CtNewMethod.make(CtClass.voidType,
 				getPostconditionName(), params, new CtClass[0], code,
 				targetClass);
-		LOG.info("Postcondition of {} is {}{}",
+		LOG.debug("Postcondition of {} is {}{}",
 				new Object[] { behavior.getLongName(), postcondition, code });
 		targetClass.addMethod(postcondition);
 	}
