@@ -22,6 +22,12 @@
 			<version>1.6.1</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.8.2</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -37,7 +43,7 @@
 							<goal>test</goal>
 						</goals>
 						<configuration>
-							<argLine>-javaagent:${project.build.directory}/incentive.jar</argLine>
+							<argLine>-javaagent:${project.build.directory}/incentive.jar=cache=${env_var:HOME}/.incentive,limit=net\.cadrian\..*</argLine>
 						</configuration>
 					</execution>
 				</executions>
