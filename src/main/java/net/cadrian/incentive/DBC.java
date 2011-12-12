@@ -20,8 +20,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Add this annotation if you want contract support on your class.
+ * 
+ * @author cadrian
+ */
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.TYPE)
 public @interface DBC {
+	/**
+	 * Set to true to skip contracts on that class.
+	 */
 	boolean skip() default false;
 }

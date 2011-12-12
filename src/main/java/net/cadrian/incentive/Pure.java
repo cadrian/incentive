@@ -21,8 +21,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * This annotation marks a method as "pure", i.e. the method is a command that
+ * does not modify its target
+ * 
+ * @author cadrian
+ */
 @Retention(RetentionPolicy.CLASS)
 @Target({ ElementType.METHOD })
 @Inherited
 public @interface Pure {
+	// empty
 }

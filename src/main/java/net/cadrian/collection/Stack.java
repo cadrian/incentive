@@ -5,20 +5,45 @@ import net.cadrian.incentive.Ensure;
 import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.Require;
 
+/**
+ * A stack of elements: the abstract interface
+ * 
+ * @author cadrian
+ * 
+ * @param <G>
+ *            the type of elements
+ */
 @DBC
 @Invariant({ "count() >= 0" })
 public interface Stack<G> {
+	/**
+	 * @return the number of elements in the stack
+	 */
 	public int count();
 
-	@Ensure({ "{result} == (count() == 0)" })
+	/**
+	 * @return <code>true</code> if the stack is empty, <code>false</code>
+	 *         otherwise
+	 */
+	@Ensure("{result} == (count() == 0)")
 	public boolean isEmpty();
 
+	/**
+	 * @return the top element of the stack
+	 */
 	public G top();
 
+	/**
+	 * @param g
+	 *            the element to push onto the stack
+	 */
 	@Ensure({ "count() == {old count()} + 1", "top() == {arg 1}" })
 	public <E extends G> void push(E g);
 
-	@Require({ "!isEmpty()" })
-	@Ensure({ "count() == {old count()} - 1" })
+	/**
+	 * remove the top item from the stack
+	 */
+	@Require("!isEmpty()")
+	@Ensure("count() == {old count()} - 1")
 	public void pop();
 }

@@ -3,12 +3,22 @@ package net.cadrian.collection;
 import java.util.ArrayList;
 
 import net.cadrian.incentive.DBC;
+import net.cadrian.incentive.Ensure;
 
+/**
+ * A {@link Stack} implemented using a simple array
+ * 
+ * @author cadrian
+ * 
+ * @param <G>
+ */
 @DBC
 public class ArrayStack<G> implements Stack<G> {
 
 	private final ArrayList<G> items;
 
+	@SuppressWarnings("javadoc")
+	@Ensure("isEmpty()")
 	public ArrayStack() {
 		items = new ArrayList<G>();
 	}

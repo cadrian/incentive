@@ -20,8 +20,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Method/constructor postcondition
+ * 
+ * @author cadrian
+ */
 @Retention(RetentionPolicy.CLASS)
-@Target(ElementType.METHOD)
+@Target({ ElementType.METHOD, ElementType.CONSTRUCTOR })
 public @interface Ensure {
+	/**
+	 * The assertions
+	 */
 	String[] value();
 }

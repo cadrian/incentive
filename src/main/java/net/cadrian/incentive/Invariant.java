@@ -20,8 +20,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Class invariant
+ * 
+ * @author cadrian
+ */
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.TYPE)
 public @interface Invariant {
+	/**
+	 * The assertions
+	 */
 	String[] value();
 }
