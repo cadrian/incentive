@@ -1,12 +1,12 @@
 /*
  * Incentive, A Design By Contract framework for Java.
  * Copyright (C) 2011 Cyril Adrian. All Rights Reserved.
- * 
- * Javaassist implementation based on C4J's 
+ *
+ * Javaassist implementation based on C4J's
  * Copyright (C) 2006 Jonas Bergstr�m. All Rights Reserved.
  *
- * The contents of this file may be used under the terms of the GNU Lesser 
- * General Public License Version 2.1 or later.
+ * The contents of this file may be used under the terms of the GNU Lesser
+ * General Public License Version 3.
  *
  * Software distributed under the License is distributed on an "AS IS" basis,
  * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
@@ -39,192 +39,192 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class ClassInstrumentor {
-	private static final Logger LOG = LoggerFactory
-			.getLogger(ClassInstrumentor.class);
+    private static final Logger LOG = LoggerFactory
+            .getLogger(ClassInstrumentor.class);
 
-	private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
-	private static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
-	private static final String INVARIANT_METHOD_SIGNATURE = "()V";
-	private static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
-	private static final String INVARIANT_ERROR_NAME = InvariantError.class
-			.getName();
+    private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
+    private static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
+    private static final String INVARIANT_METHOD_SIGNATURE = "()V";
+    private static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
+    private static final String INVARIANT_ERROR_NAME = InvariantError.class
+            .getName();
 
-	private final CtClass targetClass;
-	private final ClassPool pool;
-	private final List<ClassInstrumentor> parents;
-	private final List<MethodInstrumentor> methods;
-	private final List<ConstructorInstrumentor> constructors;
-	private final Map<String, BehaviorInstrumentor> behaviors;
+    private final CtClass targetClass;
+    private final ClassPool pool;
+    private final List<ClassInstrumentor> parents;
+    private final List<MethodInstrumentor> methods;
+    private final List<ConstructorInstrumentor> constructors;
+    private final Map<String, BehaviorInstrumentor> behaviors;
 
-	final Instrumentor instrumentor;
+    final Instrumentor instrumentor;
 
-	private int oldClassIndex = 0;
+    private int oldClassIndex = 0;
 
-	public ClassInstrumentor(final CtClass targetClass, final ClassPool pool,
-			final Instrumentor instrumentor) throws NotFoundException {
-		this.instrumentor = instrumentor;
-		this.targetClass = targetClass;
-		this.pool = pool;
+    public ClassInstrumentor(final CtClass targetClass, final ClassPool pool,
+            final Instrumentor instrumentor) throws NotFoundException {
+        this.instrumentor = instrumentor;
+        this.targetClass = targetClass;
+        this.pool = pool;
 
-		parents = new ArrayList<ClassInstrumentor>();
-		for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
-			parents.add(new ClassInstrumentor(parent, pool, instrumentor));
-		}
+        parents = new ArrayList<ClassInstrumentor>();
+        for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
+            parents.add(new ClassInstrumentor(parent, pool, instrumentor));
+        }
 
-		behaviors = new HashMap<String, BehaviorInstrumentor>();
+        behaviors = new HashMap<String, BehaviorInstrumentor>();
 
-		methods = new ArrayList<MethodInstrumentor>();
-		for (final CtMethod targetMethod : targetClass.getDeclaredMethods()) {
-			final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(
-					this, targetMethod, pool, oldClassIndex++);
-			methods.add(methodInstrumentor);
-			behaviors.put(methodInstrumentor.getKey(), methodInstrumentor);
-		}
+        methods = new ArrayList<MethodInstrumentor>();
+        for (final CtMethod targetMethod : targetClass.getDeclaredMethods()) {
+            final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(
+                    this, targetMethod, pool, oldClassIndex++);
+            methods.add(methodInstrumentor);
+            behaviors.put(methodInstrumentor.getKey(), methodInstrumentor);
+        }
 
-		constructors = new ArrayList<ConstructorInstrumentor>();
-		int i = 0;
-		for (final CtConstructor constructor : targetClass.getConstructors()) {
-			final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(
-					this, constructor, i++, pool, oldClassIndex++);
-			constructors.add(constructorInstrumentor);
-			behaviors.put(constructorInstrumentor.getKey(),
-					constructorInstrumentor);
-		}
-	}
+        constructors = new ArrayList<ConstructorInstrumentor>();
+        int i = 0;
+        for (final CtConstructor constructor : targetClass.getConstructors()) {
+            final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(
+                    this, constructor, i++, pool, oldClassIndex++);
+            constructors.add(constructorInstrumentor);
+            behaviors.put(constructorInstrumentor.getKey(),
+                    constructorInstrumentor);
+        }
+    }
 
-	public List<ClassInstrumentor> getParents() {
-		return parents;
-	}
+    public List<ClassInstrumentor> getParents() {
+        return parents;
+    }
 
-	public List<MethodInstrumentor> getMethods() {
-		return methods;
-	}
+    public List<MethodInstrumentor> getMethods() {
+        return methods;
+    }
 
-	public List<ConstructorInstrumentor> getConstructors() {
-		return constructors;
-	}
+    public List<ConstructorInstrumentor> getConstructors() {
+        return constructors;
+    }
 
-	public BehaviorInstrumentor getBehavior(final String key) {
-		return behaviors.get(key);
-	}
+    public BehaviorInstrumentor getBehavior(final String key) {
+        return behaviors.get(key);
+    }
 
-	void instrument() throws CannotCompileException, NotFoundException,
-			ClassNotFoundException, CompileError, IOException {
-		for (final ClassInstrumentor parent : parents) {
-			parent.instrument();
-		}
+    void instrument() throws CannotCompileException, NotFoundException,
+            ClassNotFoundException, CompileError, IOException {
+        for (final ClassInstrumentor parent : parents) {
+            parent.instrument();
+        }
 
-		if (targetClass.isInterface()) {
-			// We're only instrumenting classes
-			LOG.debug("{} is an interface: not instrumented",
-					targetClass.getName());
-			return;
-		}
+        if (targetClass.isInterface()) {
+            // We're only instrumenting classes
+            LOG.debug("{} is an interface: not instrumented",
+                    targetClass.getName());
+            return;
+        }
 
-		if (!InstrumentorUtil.hasDBC(targetClass)) {
-			// DBC annotation absent or skip=true
-			LOG.debug("{} has no DBC, or skipped", targetClass.getName());
-			return;
-		}
+        if (!InstrumentorUtil.hasDBC(targetClass)) {
+            // DBC annotation absent or skip=true
+            LOG.debug("{} has no DBC, or skipped", targetClass.getName());
+            return;
+        }
 
-		addPrivateFlag(INITIALIZED_FLAG_VAR);
-		addPrivateFlag(INVARIANT_FLAG_VAR);
-		addInvariantMethod();
-		for (final ConstructorInstrumentor constructor : constructors) {
-			constructor.instrument();
-		}
-		for (final MethodInstrumentor method : methods) {
-			method.instrument();
-		}
-	}
+        addPrivateFlag(INITIALIZED_FLAG_VAR);
+        addPrivateFlag(INVARIANT_FLAG_VAR);
+        addInvariantMethod();
+        for (final ConstructorInstrumentor constructor : constructors) {
+            constructor.instrument();
+        }
+        for (final MethodInstrumentor method : methods) {
+            method.instrument();
+        }
+    }
 
-	private void addPrivateFlag(final String flagName)
-			throws CannotCompileException {
-		try {
-			targetClass.getField(flagName);
-		} catch (final NotFoundException x) {
-			final CtField flagField = new CtField(CtClass.booleanType,
-					flagName, targetClass);
-			flagField.setModifiers(Modifier.PRIVATE);
-			targetClass.addField(flagField);
-		}
-	}
+    private void addPrivateFlag(final String flagName)
+            throws CannotCompileException {
+        try {
+            targetClass.getField(flagName);
+        } catch (final NotFoundException x) {
+            final CtField flagField = new CtField(CtClass.booleanType,
+                    flagName, targetClass);
+            flagField.setModifiers(Modifier.PRIVATE);
+            targetClass.addField(flagField);
+        }
+    }
 
-	boolean addClassInvariantCall(final CtBehavior a_behavior,
-			final boolean before, final boolean initialized)
-			throws CannotCompileException {
+    boolean addClassInvariantCall(final CtBehavior a_behavior,
+            final boolean before, final boolean initialized)
+            throws CannotCompileException {
 
-		try {
-			targetClass.getMethod(INVARIANT_METHOD_NAME,
-					INVARIANT_METHOD_SIGNATURE);
-			if (InstrumentorUtil.instrumentedWith(a_behavior,
-					INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
-					|| a_behavior.getDeclaringClass().equals(
-							pool.get("java.lang.Object"))
-					|| Modifier.isAbstract(a_behavior.getModifiers())
-					|| Modifier.isStatic(a_behavior.getModifiers())) {
-				return false;
-			}
-		} catch (final NotFoundException x) {
-			return false;
-		}
+        try {
+            targetClass.getMethod(INVARIANT_METHOD_NAME,
+                    INVARIANT_METHOD_SIGNATURE);
+            if (InstrumentorUtil.instrumentedWith(a_behavior,
+                    INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
+                    || a_behavior.getDeclaringClass().equals(
+                            pool.get("java.lang.Object"))
+                    || Modifier.isAbstract(a_behavior.getModifiers())
+                    || Modifier.isStatic(a_behavior.getModifiers())) {
+                return false;
+            }
+        } catch (final NotFoundException x) {
+            return false;
+        }
 
-		final String code;
-		if (initialized) {
-			// true for constructors; in that case, `before' is false
-			// Note that in that case, the invariant flag is obviously false.
-			a_behavior.insertAfter(String.format("%s=true;",
-					INITIALIZED_FLAG_VAR));
-			code = String.format("try{%s=true;%s();}finally{%s=false;}",
-					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
-					INVARIANT_FLAG_VAR);
-		} else {
-			// Only verify invariant if the instance has been fully created,
-			// hence the "if(...)"
-			code = String.format(
-					"if(%s&&!%s){try{%s=true;%s();}finally{%s=false;}}",
-					INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR,
-					INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
-					INVARIANT_FLAG_VAR);
-		}
+        final String code;
+        if (initialized) {
+            // true for constructors; in that case, `before' is false
+            // Note that in that case, the invariant flag is obviously false.
+            a_behavior.insertAfter(String.format("%s=true;",
+                    INITIALIZED_FLAG_VAR));
+            code = String.format("try{%s=true;%s();}finally{%s=false;}",
+                    INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
+                    INVARIANT_FLAG_VAR);
+        } else {
+            // Only verify invariant if the instance has been fully created,
+            // hence the "if(...)"
+            code = String.format(
+                    "if(%s&&!%s){try{%s=true;%s();}finally{%s=false;}}",
+                    INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR,
+                    INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
+                    INVARIANT_FLAG_VAR);
+        }
 
-		LOG.debug("Adding {} {}: {}", new String[] {
-				before ? "before" : "after", a_behavior.getName(), code });
+        LOG.debug("Adding {} {}: {}", new String[] {
+                before ? "before" : "after", a_behavior.getName(), code });
 
-		if (before) {
-			a_behavior.insertBefore(code);
-		} else {
-			a_behavior.insertAfter(code);
-		}
-		return true;
-	}
+        if (before) {
+            a_behavior.insertBefore(code);
+        } else {
+            a_behavior.insertAfter(code);
+        }
+        return true;
+    }
 
-	private void addInvariantMethod() throws CannotCompileException,
-			ClassNotFoundException, CompileError {
-		final StringBuilder src = new StringBuilder(String.format(
-				"private void %s() {\n", INVARIANT_METHOD_NAME));
-		addInvariantCode(src);
-		src.append('}');
-		final String code = src.toString();
-		LOG.debug("Adding to {}: {}", targetClass.getName(), code);
-		targetClass.addMethod(CtNewMethod.make(code, targetClass));
-	}
+    private void addInvariantMethod() throws CannotCompileException,
+            ClassNotFoundException, CompileError {
+        final StringBuilder src = new StringBuilder(String.format(
+                "private void %s() {\n", INVARIANT_METHOD_NAME));
+        addInvariantCode(src);
+        src.append('}');
+        final String code = src.toString();
+        LOG.debug("Adding to {}: {}", targetClass.getName(), code);
+        targetClass.addMethod(CtNewMethod.make(code, targetClass));
+    }
 
-	private void addInvariantCode(final StringBuilder src)
-			throws ClassNotFoundException, CannotCompileException, CompileError {
-		for (final ClassInstrumentor parent : parents) {
-			parent.addInvariantCode(src);
-		}
-		final Invariant invariant = (Invariant) targetClass
-				.getAnnotation(Invariant.class);
-		if (invariant != null) {
-			src.append(InstrumentorUtil.parseAssertions(invariant.value(),
-					targetClass, pool, INVARIANT_ERROR_NAME, getName()));
-		}
-	}
+    private void addInvariantCode(final StringBuilder src)
+            throws ClassNotFoundException, CannotCompileException, CompileError {
+        for (final ClassInstrumentor parent : parents) {
+            parent.addInvariantCode(src);
+        }
+        final Invariant invariant = (Invariant) targetClass
+                .getAnnotation(Invariant.class);
+        if (invariant != null) {
+            src.append(InstrumentorUtil.parseAssertions(invariant.value(),
+                    targetClass, pool, INVARIANT_ERROR_NAME, getName()));
+        }
+    }
 
-	public String getName() {
-		return targetClass.getName();
-	}
+    public String getName() {
+        return targetClass.getName();
+    }
 
 }
