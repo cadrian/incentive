@@ -9,7 +9,7 @@
 			<groupId>org.javassist</groupId>
 			<artifactId>javassist</artifactId>
 			<version>3.15.0-GA</version>
-			<scope>runtime</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -34,7 +34,7 @@
 		<plugins>
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.7.1</version>
+				<version>2.11</version>
 				<executions>
 					<execution>
 						<id>default-test</id>
@@ -43,7 +43,8 @@
 							<goal>test</goal>
 						</goals>
 						<configuration>
-							<argLine>-javaagent:${project.build.directory}/incentive.jar=cache=${env_var:HOME}/.incentive,limit=net\.cadrian\..*</argLine>
+							<forkMode>pertest</forkMode>
+							<argLine>-javaagent:${basedir}/util/incentive.jar=cache=${project.build.directory}/incentive-cache,limit=net\.cadrian\..*</argLine>
 						</configuration>
 					</execution>
 				</executions>
@@ -54,6 +55,21 @@
 				<configuration>
 					<fork>true</fork>
 					<compilerVersion>1.6</compilerVersion>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<archive>
+						<index>true</index>
+						<manifestEntries>
+							<Premain-Class>net.cadrian.incentive.assist.Instrumentor</Premain-Class>
+							<Boot-Class-Path>javassist.jar</Boot-Class-Path>
+						</manifestEntries>
+					</archive>
 				</configuration>
 			</plugin>
 		</plugins>
