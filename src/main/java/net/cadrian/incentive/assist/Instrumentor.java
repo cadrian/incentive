@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  * @author cadrian
  *
  */
-public class Instrumentor implements ClassFileTransformer {
+public final class Instrumentor implements ClassFileTransformer {
     private static final Logger LOG = LoggerFactory
             .getLogger(Instrumentor.class);
 
@@ -68,7 +68,9 @@ public class Instrumentor implements ClassFileTransformer {
 
     private Instrumentor(final String options) {
         instrumentedClasses = new HashMap<String, byte[]>();
-        if (options != null) {
+        if (options == null) {
+            cacheDirectory = null;
+        } else {
             parseOptions(options);
             cacheDirectory = Option.cache.getValue();
             if (cacheDirectory != null) {
@@ -80,8 +82,6 @@ public class Instrumentor implements ClassFileTransformer {
                         "Using cache directory for instrumented class files: {}",
                         classfileDir);
             }
-        } else {
-            cacheDirectory = null;
         }
     }
 
@@ -164,13 +164,13 @@ public class Instrumentor implements ClassFileTransformer {
     void writeToCache(final String className, final byte[] result) {
         if (cacheDirectory != null) {
             try {
-                final File f = new File(cacheDirectory, className + ".class");
-                f.createNewFile();
-                final OutputStream o = new FileOutputStream(f);
-                o.write(result);
-                o.flush();
-                o.close();
-                LOG.debug("Wrote {} to file {}.", className, f);
+                final File file = new File(cacheDirectory, className + ".class");
+                file.createNewFile();
+                final OutputStream out = new FileOutputStream(file);
+                out.write(result);
+                out.flush();
+                out.close();
+                LOG.debug("Wrote {} to file {}.", className, file);
             } catch (final IOException e) {
                 e.printStackTrace();
             }

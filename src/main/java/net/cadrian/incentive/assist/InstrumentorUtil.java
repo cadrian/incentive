@@ -16,6 +16,7 @@
 package net.cadrian.incentive.assist;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,180 +44,184 @@ import net.cadrian.incentive.Pure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class InstrumentorUtil {
-	private static final Logger LOG = LoggerFactory
-			.getLogger(InstrumentorUtil.class);
+final class InstrumentorUtil {
+    private static final Logger LOG = LoggerFactory
+            .getLogger(InstrumentorUtil.class);
 
-	public static boolean instrumentedWith(final CtBehavior method,
-			final String methodName, final String signature)
-			throws CannotCompileException {
-		final boolean[] tmp = { false };
-		method.instrument(new ExprEditor() {
-			@Override
-			public void edit(final MethodCall m) {
-				if (m.getMethodName().equals(methodName)
-						&& m.getSignature().equals(signature)) {
-					tmp[0] = true;
-				}
-			}
-		});
-		return tmp[0];
-	}
+    private InstrumentorUtil() {
+        // no instances
+    }
 
-	public static boolean methodAnnotatedWithPure(final CtMethod method)
-			throws ClassNotFoundException {
-		for (final Object annotation : method.getAnnotations()) {
-			if (annotation instanceof Pure) {
-				return true;
-			}
-		}
-		return false;
-	}
+    public static boolean instrumentedWith(final CtBehavior method,
+            final String methodName, final String signature)
+            throws CannotCompileException {
+        final boolean[] tmp = { false };
+        method.instrument(new ExprEditor() {
+            @Override
+            public void edit(final MethodCall mcall) {
+                if (mcall.getMethodName().equals(methodName)
+                        && mcall.getSignature().equals(signature)) {
+                    tmp[0] = true;
+                }
+            }
+        });
+        return tmp[0];
+    }
 
-	public static boolean isPure(final CtMethod method)
-			throws CannotCompileException, NotFoundException,
-			ClassNotFoundException {
-		if (methodAnnotatedWithPure(method)) {
-			return true;
-		}
+    public static boolean methodAnnotatedWithPure(final CtMethod method)
+            throws ClassNotFoundException {
+        for (final Object annotation : method.getAnnotations()) {
+            if (annotation instanceof Pure) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-		final List<CtClass> classHierarchy = getParents(method
-				.getDeclaringClass());
-		classHierarchy.add(0, method.getDeclaringClass());
-		for (final CtClass c : classHierarchy) {
-			final List<CtClass> interfaces = new ArrayList<CtClass>();
-			Collections.addAll(interfaces, c.getInterfaces());
-			for (int i = 0; i < interfaces.size(); i++) {
-				final CtClass interfaze = interfaces.get(i);
-				CtMethod m = null;
-				try {
-					m = interfaze.getMethod(method.getName(),
-							method.getSignature());
-					if (m != null && methodAnnotatedWithPure(m)) {
-						return true;
-					}
-				} catch (final NotFoundException e) {
-					// ignored, m is null
-				}
-				Collections.addAll(interfaces, interfaze.getInterfaces());
-			}
-		}
+    public static boolean isPure(final CtMethod method)
+            throws CannotCompileException, NotFoundException,
+            ClassNotFoundException {
+        if (methodAnnotatedWithPure(method)) {
+            return true;
+        }
 
-		final boolean[] tmp = { true };
-		method.instrument(new ExprEditor() {
-			@Override
-			public void edit(final Cast c) {
-				// Should be ok
-			}
+        final List<CtClass> classHierarchy = getParents(method
+                .getDeclaringClass());
+        classHierarchy.add(0, method.getDeclaringClass());
+        for (final CtClass c : classHierarchy) {
+            final List<CtClass> interfaces = new ArrayList<CtClass>();
+            Collections.addAll(interfaces, c.getInterfaces());
+            for (int i = 0; i < interfaces.size(); i++) {
+                final CtClass interfaze = interfaces.get(i);
+                CtMethod meth = null;
+                try {
+                    meth = interfaze.getMethod(method.getName(),
+                            method.getSignature());
+                    if (meth != null && methodAnnotatedWithPure(meth)) {
+                        return true;
+                    }
+                } catch (final NotFoundException e) {
+                    // ignored, meth is null
+                }
+                Collections.addAll(interfaces, interfaze.getInterfaces());
+            }
+        }
 
-			@Override
-			public void edit(final ConstructorCall c) {
-				tmp[0] = false;
-			}
+        final boolean[] tmp = { true };
+        method.instrument(new ExprEditor() {
+            @Override
+            public void edit(final Cast c) {
+                // Should be ok
+            }
 
-			@Override
-			public void edit(final FieldAccess f) {
-				if (!f.isReader()) {
-					tmp[0] = false;
-				}
-			}
+            @Override
+            public void edit(final ConstructorCall c) {
+                tmp[0] = false;
+            }
 
-			@Override
-			public void edit(final Handler h) {
-				tmp[0] = false;
-			}
+            @Override
+            public void edit(final FieldAccess f) {
+                if (!f.isReader()) {
+                    tmp[0] = false;
+                }
+            }
 
-			@Override
-			public void edit(final Instanceof i) {
-				// Should be ok
-			}
+            @Override
+            public void edit(final Handler h) {
+                tmp[0] = false;
+            }
 
-			@Override
-			public void edit(final MethodCall m) {
-				tmp[0] = false;
-			}
+            @Override
+            public void edit(final Instanceof i) {
+                // Should be ok
+            }
 
-			@Override
-			public void edit(final NewArray a) {
-				tmp[0] = false;
-			}
+            @Override
+            public void edit(final MethodCall m) {
+                tmp[0] = false;
+            }
 
-			@Override
-			public void edit(final NewExpr e) {
-				tmp[0] = false;
-			}
-		});
-		return tmp[0];
-	}
+            @Override
+            public void edit(final NewArray a) {
+                tmp[0] = false;
+            }
 
-	private static void addParents(final CtClass targetClass,
-			final Set<CtClass> parents) throws NotFoundException {
-		final CtClass parent = targetClass.getSuperclass();
-		if (parent != null && !parents.contains(parent)) {
-			parents.add(parent);
-			addParents(parent, parents);
-		}
-		for (final CtClass itf : targetClass.getInterfaces()) {
-			if (!parents.contains(itf)) {
-				parents.add(itf);
-				addParents(itf, parents);
-			}
-		}
-	}
+            @Override
+            public void edit(final NewExpr e) {
+                tmp[0] = false;
+            }
+        });
+        return tmp[0];
+    }
 
-	public static List<CtClass> getParents(final CtClass targetClass)
-			throws NotFoundException {
-		final Set<CtClass> parents = new LinkedHashSet<CtClass>();
-		addParents(targetClass, parents);
-		return new ArrayList<CtClass>(parents);
-	}
+    private static void addParents(final CtClass targetClass,
+            final Set<CtClass> parents) throws NotFoundException {
+        final CtClass parent = targetClass.getSuperclass();
+        if (parent != null && !parents.contains(parent)) {
+            parents.add(parent);
+            addParents(parent, parents);
+        }
+        for (final CtClass itf : targetClass.getInterfaces()) {
+            if (!parents.contains(itf)) {
+                parents.add(itf);
+                addParents(itf, parents);
+            }
+        }
+    }
 
-	static boolean hasDBC(final CtClass a_targetClass) {
-		try {
-			final DBC dbc = (DBC) a_targetClass.getAnnotation(DBC.class);
-			return dbc != null && !dbc.skip();
-		} catch (final ClassNotFoundException cnfx) {
-			LOG.warn("class not found???", cnfx);
-		}
-		return false;
-	}
+    public static List<CtClass> getParents(final CtClass targetClass)
+            throws NotFoundException {
+        final Set<CtClass> parents = new LinkedHashSet<CtClass>();
+        addParents(targetClass, parents);
+        return new ArrayList<CtClass>(parents);
+    }
 
-	static String parseAssertions(final String[] assertions,
-			final CtClass targetClass, final ClassPool pool,
-			final String errorClassName, final String errorMessage,
-			final TransformCodec... codecs) throws CannotCompileException,
-			CompileError {
-		final StringBuilder src = new StringBuilder();
-		for (final String assertion : assertions) {
-			final String transformed = transform(assertion, targetClass, pool,
-					codecs);
-			if (transformed != null) {
-				src.append(String
-						.format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
-								transformed, errorClassName, errorMessage,
-								errorClassName, errorMessage));
-			}
-		}
-		return src.toString();
-	}
+    static boolean hasDBC(final CtClass a_targetClass) {
+        try {
+            final DBC dbc = (DBC) a_targetClass.getAnnotation(DBC.class);
+            return dbc != null && !dbc.skip();
+        } catch (final ClassNotFoundException cnfx) {
+            LOG.warn("class not found???", cnfx);
+        }
+        return false;
+    }
 
-	static String transform(final String src, final CtClass targetClass,
-			final ClassPool pool, final TransformCodec... codecs)
-			throws CannotCompileException, CompileError {
-		String result = src;
-		if (codecs != null) {
-			for (final TransformCodec codec : codecs) {
-				result = codec.decode(result, targetClass, pool);
-			}
-		}
-		return result;
-	}
+    static String parseAssertions(final String[] assertions,
+            final CtClass targetClass, final ClassPool pool,
+            final String errorClassName, final String errorMessage,
+            final TransformCodec... codecs) throws CannotCompileException,
+            CompileError {
+        final StringBuilder src = new StringBuilder();
+        for (final String assertion : assertions) {
+            final String transformed = transform(assertion, targetClass, pool,
+                    codecs);
+            if (transformed != null) {
+                src.append(String
+                        .format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
+                                transformed, errorClassName, errorMessage,
+                                errorClassName, errorMessage));
+            }
+        }
+        return src.toString();
+    }
 
-	static String voidify(final String descriptor) {
-		final int index = descriptor.indexOf(')');
-		if (index < 0) {
-			return descriptor;
-		}
-		return String.format("%sV;", descriptor.substring(0, index + 1));
-	}
+    static String transform(final String src, final CtClass targetClass,
+            final ClassPool pool, final TransformCodec... codecs)
+            throws CannotCompileException, CompileError {
+        String result = src;
+        if (codecs != null) {
+            for (final TransformCodec codec : codecs) {
+                result = codec.decode(result, targetClass, pool);
+            }
+        }
+        return result;
+    }
+
+    static String voidify(final String descriptor) {
+        final int index = descriptor.indexOf(')');
+        if (index < 0) {
+            return descriptor;
+        }
+        return String.format("%sV;", descriptor.substring(0, index + 1));
+    }
 }

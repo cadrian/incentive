@@ -58,13 +58,13 @@ class ClassInstrumentor {
 
     final Instrumentor instrumentor;
 
-    private int oldClassIndex = 0;
-
     public ClassInstrumentor(final CtClass targetClass, final ClassPool pool,
             final Instrumentor instrumentor) throws NotFoundException {
         this.instrumentor = instrumentor;
         this.targetClass = targetClass;
         this.pool = pool;
+
+        int oldClassIndex = 0;
 
         parents = new ArrayList<ClassInstrumentor>();
         for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
@@ -82,10 +82,10 @@ class ClassInstrumentor {
         }
 
         constructors = new ArrayList<ConstructorInstrumentor>();
-        int i = 0;
+        int index = 0;
         for (final CtConstructor constructor : targetClass.getConstructors()) {
             final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(
-                    this, constructor, i++, pool, oldClassIndex++);
+                    this, constructor, index++, pool, oldClassIndex++);
             constructors.add(constructorInstrumentor);
             behaviors.put(constructorInstrumentor.getKey(),
                     constructorInstrumentor);

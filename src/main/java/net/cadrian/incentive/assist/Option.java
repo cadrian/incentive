@@ -54,20 +54,20 @@ enum Option {
         }
     };
 
-    private static final Map<String, Option> options = new HashMap<String, Option>();
+    private static final Map<String, Option> OPTIONS = new HashMap<String, Option>();
     static {
         for (final Option o : values()) {
-            options.put(o.name(), o);
+            OPTIONS.put(o.name(), o);
         }
     }
 
     static boolean has(final String name) {
-        return options.containsKey(name);
+        return OPTIONS.containsKey(name);
     }
 
     static String get(final String name) {
         String result = null;
-        final Option option = options.get(name);
+        final Option option = OPTIONS.get(name);
         if (option != null) {
             result = option.getValue();
         }
@@ -75,11 +75,11 @@ enum Option {
     }
 
     static boolean isSet(final String name) {
-        return options.get(name).isSet();
+        return OPTIONS.get(name).isSet();
     }
 
     static void set(final String name, final String value) {
-        options.get(name).setValue(value);
+        OPTIONS.get(name).setValue(value);
     }
 
     private String value = null;
