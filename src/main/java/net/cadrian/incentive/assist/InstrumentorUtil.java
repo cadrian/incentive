@@ -74,8 +74,8 @@ class InstrumentorUtil {
 	}
 
 	public static boolean isPure(final CtMethod method)
-			throws CannotCompileException, NotFoundException,
-			ClassNotFoundException {
+			throws CannotCompileException, ClassNotFoundException,
+			NotFoundException {
 		if (methodAnnotatedWithPure(method)) {
 			return true;
 		}
@@ -89,8 +89,12 @@ class InstrumentorUtil {
 			for (int i = 0; i < interfaces.size(); i++) {
 				final CtClass interfaze = interfaces.get(i);
 				CtMethod m = null;
-				m = interfaze
-						.getMethod(method.getName(), method.getSignature());
+				try {
+					m = interfaze.getMethod(method.getName(),
+							method.getSignature());
+				} catch (final NotFoundException x) {
+					// m stays null
+				}
 				if (m != null && methodAnnotatedWithPure(m)) {
 					return true;
 				}
