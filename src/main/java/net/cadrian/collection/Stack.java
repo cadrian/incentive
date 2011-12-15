@@ -18,7 +18,7 @@ public interface Stack<G> extends Collection<G> {
 	/**
 	 * @return the top element of the stack
 	 */
-	@Ensure("{return} == item(count()-1)")
+	@Ensure("{result} == item(count()-1)")
 	public G top();
 
 	/**
