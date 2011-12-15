@@ -48,4 +48,9 @@ public class ArrayStack<G> implements Stack<G> {
 		items.remove(items.size() - 1);
 	}
 
+	@Override
+	public G item(final int i) {
+		return items.get(i);
+	}
+
 }

@@ -2,7 +2,6 @@ package net.cadrian.collection;
 
 import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
-import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.Require;
 
 /**
@@ -14,23 +13,12 @@ import net.cadrian.incentive.Require;
  *            the type of elements
  */
 @DBC
-@Invariant({ "count() >= 0" })
-public interface Stack<G> {
-	/**
-	 * @return the number of elements in the stack
-	 */
-	public int count();
-
-	/**
-	 * @return <code>true</code> if the stack is empty, <code>false</code>
-	 *         otherwise
-	 */
-	@Ensure("{result} == (count() == 0)")
-	public boolean isEmpty();
+public interface Stack<G> extends Collection<G> {
 
 	/**
 	 * @return the top element of the stack
 	 */
+	@Ensure("{return} == item(count()-1)")
 	public G top();
 
 	/**
