@@ -188,11 +188,14 @@ class InstrumentorUtil {
 			CompileError {
 		final StringBuilder src = new StringBuilder();
 		for (final String assertion : assertions) {
-			src.append(String
-					.format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
-							transform(assertion, targetClass, pool, codecs),
-							errorClassName, errorMessage, errorClassName,
-							errorMessage));
+			final String transformed = transform(assertion, targetClass, pool,
+					codecs);
+			if (transformed != null) {
+				src.append(String
+						.format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
+								transformed, errorClassName, errorMessage,
+								errorClassName, errorMessage));
+			}
 		}
 		return src.toString();
 	}

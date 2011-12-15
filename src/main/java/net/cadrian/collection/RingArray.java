@@ -93,7 +93,7 @@ public class RingArray<G> implements Collection<G> {
 		lower = (lower + 1) % items.length;
 	}
 
-	@Ensure("{count() == {old count()}")
+	@Ensure("count() == {old count()}")
 	private void makeRoom() {
 		@SuppressWarnings("unchecked")
 		final G[] newArray = (G[]) new Object[count * 2];
