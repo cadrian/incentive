@@ -18,7 +18,7 @@ public class ArrayStack<G> implements Stack<G> {
 	private final ArrayList<G> items;
 
 	@SuppressWarnings("javadoc")
-	@Ensure("isEmpty()")
+	@Ensure("count() == 0")
 	public ArrayStack() {
 		items = new ArrayList<G>();
 	}
@@ -46,6 +46,11 @@ public class ArrayStack<G> implements Stack<G> {
 	@Override
 	public void pop() {
 		items.remove(items.size() - 1);
+	}
+
+	@Override
+	public G item(final int i) {
+		return items.get(i);
 	}
 
 }
