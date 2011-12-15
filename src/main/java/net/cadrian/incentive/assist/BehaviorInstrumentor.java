@@ -164,16 +164,16 @@ abstract class BehaviorInstrumentor {
         fillPreconditionClass();
         src.append(String.format("final %s result = new %s();\n", oldClassName,
                 oldClassName));
-        addPreconditionOld(src);
+        addPreconditionOld(src, null);
         addPreconditionCode(src);
         src.append("if(err!=null)throw err;\nreturn result;\n}");
         final String code = src.toString();
+        LOG.info("Precondition of {} is {}{}",
+                new Object[] { behavior.getLongName(), precondition, code });
         precondition = CtNewMethod
                 .make(oldValuesClass, getPreconditionName(),
                         behavior.getParameterTypes(), new CtClass[0], code,
                         targetClass);
-        LOG.debug("Precondition of {} is {}{}",
-                new Object[] { behavior.getLongName(), precondition, code });
         setPreconditionModifiers(precondition);
         targetClass.addMethod(precondition);
     }
@@ -182,19 +182,23 @@ abstract class BehaviorInstrumentor {
             NotFoundException, CannotCompileException, CompileError,
             IOException {
         oldValuesClass.setModifiers(Modifier.FINAL);
-        addPreconditionClassFields(oldValuesClass);
+        addPreconditionClassFields(oldValuesClass, null);
         instrumentor.writeToCache(oldClassName, oldValuesClass.toBytecode());
         oldValuesClass.toClass(); // to load it in the JVM
     }
 
-    private void addPreconditionClassFields(final CtClass a_preconditionClass)
+    private TransformCodec addPreconditionClassFields(
+            final CtClass a_preconditionClass,
+            final TransformCodec a_oldClassCodec)
             throws ClassNotFoundException, NotFoundException,
             CannotCompileException, CompileError {
+        TransformCodec result = a_oldClassCodec;
         for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
             final BehaviorInstrumentor parentBehavior = parent
                     .getBehavior(getKey());
             if (parentBehavior != null) {
-                parentBehavior.addPreconditionClassFields(a_preconditionClass);
+                result = parentBehavior.addPreconditionClassFields(
+                        a_preconditionClass, result);
             }
         }
 
@@ -202,26 +206,26 @@ abstract class BehaviorInstrumentor {
                 Ensure.class);
         if (ensure != null) {
             for (final String assertion : ensure.value()) {
-                InstrumentorUtil
-                        .transform(
-                                assertion,
-                                targetClass,
-                                pool,
-                                TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
-                                TransformCodecs
-                                        .PRECONDITION_OLD_CLASS_CODEC(a_preconditionClass));
+                result = TransformCodecs.PRECONDITION_OLD_CLASS_CODEC(
+                        a_preconditionClass, result);
+                InstrumentorUtil.transform(assertion, targetClass, pool,
+                        TransformCodecs.PRECONDITION_ARGUMENTS_CODEC, result);
             }
         }
+
+        return result;
     }
 
-    private void addPreconditionOld(final StringBuilder src)
+    private TransformCodec addPreconditionOld(final StringBuilder src,
+            final TransformCodec a_oldValuesCodec)
             throws ClassNotFoundException, NotFoundException,
             CannotCompileException, CompileError {
+        TransformCodec result = a_oldValuesCodec;
         for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
             final BehaviorInstrumentor parentBehavior = parent
                     .getBehavior(getKey());
             if (parentBehavior != null) {
-                parentBehavior.addPreconditionOld(src);
+                result = parentBehavior.addPreconditionOld(src, result);
             }
         }
 
@@ -229,34 +233,22 @@ abstract class BehaviorInstrumentor {
                 Ensure.class);
         if (ensure != null) {
             for (final String assertion : ensure.value()) {
+                result = TransformCodecs.PRECONDITION_OLD_VALUES_CODEC(result);
                 src.append(InstrumentorUtil.transform(assertion, targetClass,
                         pool, TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
-                        TransformCodecs.PRECONDITION_OLD_VALUES_CODEC));
+                        result));
             }
         }
+
+        return result;
     }
 
     private boolean addPreconditionCode(final StringBuilder src)
             throws ClassNotFoundException, NotFoundException,
             CannotCompileException, CompileError {
         boolean result = false;
-        for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
-            final BehaviorInstrumentor parentBehavior = parent
-                    .getBehavior(getKey());
-            if (parentBehavior != null) {
-                final int srcLength = src.length();
-                src.append("try{");
-                final boolean hasRequire = parentBehavior
-                        .addPreconditionCode(src);
-                if (hasRequire) {
-                    src.append(String.format(
-                            "return result;}\ncatch(%s x){err=x;}\n",
-                            PRECONDITION_ERROR_NAME));
-                } else {
-                    src.setLength(srcLength);
-                }
-            }
-        }
+
+        addPreconditionCodeFromParents(src, classInstrumentor);
 
         final Require require = (Require) getPrecursor().getAnnotation(
                 Require.class);
@@ -270,6 +262,31 @@ abstract class BehaviorInstrumentor {
         return result;
     }
 
+    private void addPreconditionCodeFromParents(final StringBuilder src,
+            final ClassInstrumentor a_classInstrumentor)
+            throws ClassNotFoundException, NotFoundException,
+            CannotCompileException, CompileError {
+        for (final ClassInstrumentor parent : a_classInstrumentor.getParents()) {
+            final BehaviorInstrumentor parentBehavior = parent
+                    .getBehavior(getKey());
+            if (parentBehavior == null) {
+                addPreconditionCodeFromParents(src, parent);
+            } else {
+                final int srcLength = src.length();
+                src.append("try{");
+                final boolean hasRequire = parentBehavior
+                        .addPreconditionCode(src);
+                if (hasRequire) {
+                    src.append(String.format(
+                            "return result;}\ncatch(%s x){err=x;}\n",
+                            PRECONDITION_ERROR_NAME));
+                } else {
+                    src.setLength(srcLength);
+                }
+            }
+        }
+    }
+
     private String getName() {
         return behavior.getLongName();
     }
@@ -277,7 +294,7 @@ abstract class BehaviorInstrumentor {
     private void definePostconditionMethod() throws CannotCompileException,
             NotFoundException, ClassNotFoundException, CompileError {
         final StringBuilder src = new StringBuilder("{");
-        addPostconditionCode(src);
+        addPostconditionCode(src, null);
         src.append('}');
         final CtClass[] params;
         final CtClass[] params0 = behavior.getParameterTypes();
@@ -294,33 +311,37 @@ abstract class BehaviorInstrumentor {
         }
 
         final String code = src.toString();
+        LOG.info("Postcondition of {} is {}{}",
+                new Object[] { behavior.getLongName(), postcondition, code });
         postcondition = CtNewMethod.make(CtClass.voidType,
                 getPostconditionName(), params, new CtClass[0], code,
                 targetClass);
-        LOG.debug("Postcondition of {} is {}{}",
-                new Object[] { behavior.getLongName(), postcondition, code });
         targetClass.addMethod(postcondition);
     }
 
-    private void addPostconditionCode(final StringBuilder src)
+    private TransformCodec addPostconditionCode(final StringBuilder src,
+            final TransformCodec a_preconditionOldValues)
             throws ClassNotFoundException, NotFoundException,
             CannotCompileException, CompileError {
+        TransformCodec result = a_preconditionOldValues;
         for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
             final BehaviorInstrumentor parentBehavior = parent
                     .getBehavior(getKey());
             if (parentBehavior != null) {
-                parentBehavior.addPostconditionCode(src);
+                result = parentBehavior.addPostconditionCode(src, result);
             }
         }
         final Ensure ensure = (Ensure) getPrecursor().getAnnotation(
                 Ensure.class);
         if (ensure != null) {
+            result = TransformCodecs.POSTCONDITION_OLD_VALUES_CODEC(result);
             src.append(InstrumentorUtil.parseAssertions(ensure.value(),
                     targetClass, pool, POSTCONDITION_ERROR_NAME, getName(),
                     TransformCodecs.POSTCONDITION_RESULT_CODEC,
-                    TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC,
-                    TransformCodecs.POSTCONDITION_OLD_VALUES_CODEC));
+                    TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC, result));
         }
+
+        return result;
     }
 
     public String getKey() {
