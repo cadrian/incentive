@@ -18,7 +18,7 @@ public class ArrayStack<G> implements Stack<G> {
 	private final ArrayList<G> items;
 
 	@SuppressWarnings("javadoc")
-	@Ensure("isEmpty()")
+	@Ensure("count() == 0")
 	public ArrayStack() {
 		items = new ArrayList<G>();
 	}

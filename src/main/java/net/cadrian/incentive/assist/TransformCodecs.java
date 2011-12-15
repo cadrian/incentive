@@ -47,67 +47,103 @@ final class TransformCodecs {
 		}
 	};
 
+	private static class OldClassTransformCodec implements TransformCodec {
+		int index;
+		private final CtClass preconditionClass;
+
+		OldClassTransformCodec(final CtClass a_preconditionClass,
+				final int a_index) {
+			this.index = a_index;
+			this.preconditionClass = a_preconditionClass;
+		}
+
+		@SuppressWarnings("boxing")
+		@Override
+		public String decode(final String assertion, final CtClass targetClass,
+				final ClassPool pool) throws CannotCompileException,
+				CompileError {
+			final StringBuffer result = new StringBuffer();
+			final Matcher matcher = OLD_REGEXP.matcher(assertion);
+			while (matcher.find()) {
+				final String src = matcher.group(1);
+				final CtClass type = expressionType(src, targetClass, pool);
+				final CtField field = new CtField(type, String.format("old%d",
+						index++), preconditionClass);
+				field.setModifiers(Modifier.PUBLIC);
+				preconditionClass.addField(field);
+			}
+
+			return result.toString();
+		}
+	}
+
 	// The {old} class -- in preconditions only
 	static TransformCodec PRECONDITION_OLD_CLASS_CODEC(
-			final CtClass preconditionClass) {
-		final int[] index = { 0 };
-		return new TransformCodec() {
-			@SuppressWarnings("boxing")
-			@Override
-			public String decode(final String assertion,
-					final CtClass targetClass, final ClassPool pool)
-					throws CannotCompileException, CompileError {
-				final StringBuffer result = new StringBuffer();
-				final Matcher matcher = OLD_REGEXP.matcher(assertion);
-				while (matcher.find()) {
-					final String src = matcher.group(1);
-					final CtClass type = expressionType(src, targetClass, pool);
-					final CtField field = new CtField(type, String.format(
-							"old%d", index[0]++), preconditionClass);
-					field.setModifiers(Modifier.PUBLIC);
-					preconditionClass.addField(field);
-				}
+			final CtClass preconditionClass, final TransformCodec previous) {
+		return new OldClassTransformCodec(preconditionClass,
+				previous == null ? 0
+						: ((OldClassTransformCodec) previous).index);
+	}
 
-				return result.toString();
+	private static class OldValuesTransformCodec implements TransformCodec {
+		int index;
+
+		OldValuesTransformCodec(final int a_index) {
+			this.index = a_index;
+		}
+
+		@SuppressWarnings("boxing")
+		@Override
+		public final String decode(final String assertion,
+				final CtClass targetClass, final ClassPool pool) {
+			final StringBuffer result = new StringBuffer();
+			final Matcher matcher = OLD_REGEXP.matcher(assertion);
+			while (matcher.find()) {
+				final String src = matcher.group(1);
+				result.append(String.format("result.old%d = (%s);\n", index++,
+						src));
 			}
-		};
+
+			return result.toString();
+		}
 	}
 
 	// The {old} values -- in preconditions only
-	static TransformCodec PRECONDITION_OLD_VALUES_CODEC = new TransformCodec() {
-		@SuppressWarnings("boxing")
-		@Override
-		public String decode(final String assertion, final CtClass targetClass,
-				final ClassPool pool) {
-			final StringBuffer result = new StringBuffer();
-			final Matcher matcher = OLD_REGEXP.matcher(assertion);
-			int i = 0;
-			while (matcher.find()) {
-				final String src = matcher.group(1);
-				result.append(String.format("result.old%d = (%s);\n", i++, src));
-			}
+	static TransformCodec PRECONDITION_OLD_VALUES_CODEC(
+			final TransformCodec previous) {
+		return new OldValuesTransformCodec(previous == null ? 0
+				: ((OldValuesTransformCodec) previous).index);
+	}
 
-			return result.toString();
+	private static class PostconditionOldValuesTransformCodec implements
+			TransformCodec {
+		int index;
+
+		PostconditionOldValuesTransformCodec(final int a_index) {
+			this.index = a_index;
 		}
-	};
 
-	// The {old} values -- in postconditions only
-	static TransformCodec POSTCONDITION_OLD_VALUES_CODEC = new TransformCodec() {
 		@SuppressWarnings("boxing")
 		@Override
-		public String decode(final String assertion, final CtClass targetClass,
-				final ClassPool pool) {
+		public final String decode(final String assertion,
+				final CtClass targetClass, final ClassPool pool) {
 			final StringBuffer result = new StringBuffer();
 			final Matcher matcher = OLD_REGEXP.matcher(assertion);
-			int i = 0;
 			while (matcher.find()) {
 				matcher.appendReplacement(result,
-						String.format("((\\$1).old%d)", i++));
+						String.format("((\\$1).old%d)", index++));
 			}
-			matcher.appendTail(result);
+
 			return result.toString();
 		}
-	};
+	}
+
+	// The {old} values -- in postconditions only
+	static TransformCodec POSTCONDITION_OLD_VALUES_CODEC(
+			final TransformCodec previous) {
+		return new PostconditionOldValuesTransformCodec(previous == null ? 0
+				: ((PostconditionOldValuesTransformCodec) previous).index);
+	}
 
 	static TransformCodec PRECONDITION_ARGUMENTS_CODEC = new TransformCodec() {
 		@SuppressWarnings("boxing")
