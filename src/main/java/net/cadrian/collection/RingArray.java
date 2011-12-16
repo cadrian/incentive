@@ -1,7 +1,10 @@
 package net.cadrian.collection;
 
+import java.lang.reflect.Array;
+
 import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
+import net.cadrian.incentive.Require;
 
 /**
  * An array with O(1) insertion and removal at both ends of the array (except
@@ -50,7 +53,7 @@ public class RingArray<G> implements Collection<G> {
      * @param element
      *            the element to add
      */
-    @Ensure({ "count() == {old count()} + 1", "item(count()-1) == {arg 1}" })
+    @Ensure({"count() == {old count()} + 1", "item(count()-1) == {arg 1}"})
     public void addLast(final G element) {
         if (count == items.length) {
             makeRoom();
@@ -63,6 +66,7 @@ public class RingArray<G> implements Collection<G> {
     /**
      * Remove the last element
      */
+    @Require("count() > 0")
     @Ensure("count() == {old count()} - 1")
     public void removeLast() {
         count--;
@@ -74,7 +78,7 @@ public class RingArray<G> implements Collection<G> {
      * @param element
      *            the element to insert
      */
-    @Ensure({ "count() == {old count()} + 1", "item(0) == {arg 1}" })
+    @Ensure({"count() == {old count()} + 1", "item(0) == {arg 1}"})
     public void addFirst(final G element) {
         if (count == items.length) {
             makeRoom();
@@ -87,22 +91,47 @@ public class RingArray<G> implements Collection<G> {
     /**
      * Remove the first element
      */
-    @Ensure({ "count() == {old count()} - 1",
-            "count() == 0 || item(0) == {old item(1)}" })
+    @Require("count() > 0")
+    @Ensure({"count() == {old count()} - 1",
+            "count() == 0 || item(0) == {old count()==1 ? null : item(1)}"})
     public void removeFirst() {
         count--;
         lower = (lower + 1) % items.length;
+    }
+
+    @Require("{arg 1}.length >= count()")
+    private void copyTo(final G[] array) {
+        final int pivot = count - lower;
+        System.arraycopy(items, lower, array, 0, pivot);
+        System.arraycopy(items, 0, array, pivot, lower);
     }
 
     @Ensure("count() == {old count()}")
     private void makeRoom() {
         @SuppressWarnings("unchecked")
         final G[] newArray = (G[]) new Object[count * 2];
-        final int pivot = count - lower;
-        System.arraycopy(items, lower, newArray, 0, pivot);
-        System.arraycopy(items, 0, newArray, pivot, lower);
+        copyTo(newArray);
         items = newArray;
         lower = 0;
+    }
+
+    public G[] toArray(final G[] array) {
+        final G[] result;
+        if (array == null) {
+            @SuppressWarnings("unchecked")
+            final G[] newArray = (G[])new Object[count()];
+            result = newArray;
+        }
+        else if (array.length < count()) {
+            @SuppressWarnings("unchecked")
+            final G[] newArray = (G[])Array.newInstance(array.getClass().getComponentType(), count());
+            result = newArray;
+        }
+        else {
+            result = array;
+        }
+        copyTo(result);
+        return result;
     }
 
 }

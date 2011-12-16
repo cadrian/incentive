@@ -1,7 +1,5 @@
 package net.cadrian.collection;
 
-import java.util.ArrayList;
-
 import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
 
@@ -15,17 +13,17 @@ import net.cadrian.incentive.Ensure;
 @DBC
 public class ArrayStack<G> implements Stack<G> {
 
-    private final ArrayList<G> items;
+    private final RingArray<G> items;
 
     @SuppressWarnings("javadoc")
     @Ensure("count() == 0")
     public ArrayStack() {
-        items = new ArrayList<G>();
+        items = new RingArray<G>();
     }
 
     @Override
     public int count() {
-        return items.size();
+        return items.count();
     }
 
     @Override
@@ -35,22 +33,37 @@ public class ArrayStack<G> implements Stack<G> {
 
     @Override
     public G top() {
-        return items.get(items.size() - 1);
+        return items.item(0);
     }
 
     @Override
     public <E extends G> void push(final E element) {
-        items.add(element);
+        items.addFirst(element);
     }
 
     @Override
     public void pop() {
-        items.remove(items.size() - 1);
+        items.removeFirst();
     }
 
     @Override
     public G item(final int index) {
-        return items.get(index);
+        final int len = count() - 1;
+        return items.item(len - index);
+    }
+
+    public G[] toArray(final G[] array) {
+        final G[] result = items.toArray(array);
+        final int len = count();
+        final int mid = len / 2;
+        if (mid > 0) {
+            for (int i = 0; i < mid; i++) {
+                final G tmp = array[i];
+                array[i] = array[len - i];
+                array[len - i] = tmp;
+            }
+        }
+        return result;
     }
 
 }
