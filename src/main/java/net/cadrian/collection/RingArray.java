@@ -134,36 +134,4 @@ public class RingArray<G> extends AbstractCollection<G> {
         return result;
     }
 
-    public Iterator<G> iterator() {
-        return new RingArrayIterator<G>(this);
-    }
-
-}
-
-@DBC
-class RingArrayIterator<G> extends AbstractIterator<G> {
-
-    private final RingArray<G> array;
-    private int index;
-
-    @Ensure({"array == {arg 1}", "count() == {arg 1}.count()", "index == 0"})
-    RingArrayIterator(final RingArray<G> a_array) {
-        this.array = a_array;
-    }
-
-    public int count() {
-        return array.count() - index;
-    }
-
-    public boolean isEmpty() {
-        return index == array.count();
-    }
-
-    public void next() {
-        index++;
-    }
-
-    public G item() {
-        return array.item(index);
-    }
 }

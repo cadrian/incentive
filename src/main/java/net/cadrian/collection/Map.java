@@ -25,12 +25,20 @@ public interface Map<K, V> extends Collection<MapEntry<K, V>> {
     V at(K key);
 
     /**
+     * @param the key to look at
+     *
+     * @return the value at the given key
+     */
+    @Ensure("!has({arg 1}) || {result} == at({arg 1})")
+    V ref(K key);
+
+    /**
      * @param index the index of the key to return
      *
      * @return the index-th key
      */
     @Require("{arg 1} >= 0 && {arg 1} < count()")
-    @Ensure("{result} == item({arg 1}).key()")
+    @Ensure("{result} == item({arg 1}).key")
     K key(int index);
 
     /**
@@ -39,7 +47,7 @@ public interface Map<K, V> extends Collection<MapEntry<K, V>> {
      * @return the index-th value
      */
     @Require("{arg 1} >= 0 && {arg 1} < count()")
-    @Ensure("{result} == item({arg 1}).value()")
+    @Ensure("{result} == item({arg 1}).value")
     V value(int index);
 
 }

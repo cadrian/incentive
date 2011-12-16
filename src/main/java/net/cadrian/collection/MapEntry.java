@@ -3,10 +3,14 @@ package net.cadrian.collection;
 import net.cadrian.incentive.DBC;
 
 @DBC
-public interface MapEntry<K, V> {
+public final class MapEntry<K, V> {
 
-    K getKey();
+    public final K key;
+    public final V value;
 
-    V getValue();
+    MapEntry(K a_key, V a_value) {
+        this.key = a_key;
+        this.value = a_value;
+    }
 
 }

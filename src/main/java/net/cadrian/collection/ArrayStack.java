@@ -69,39 +69,4 @@ public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
         return result;
     }
 
-    @Override
-    public Iterator<G> iterator() {
-        return new ArrayStackIterator<G>(this);
-    }
-
-}
-
-@DBC
-class ArrayStackIterator<G> extends AbstractIterator<G> {
-
-    private final ArrayStack<G> array;
-    private int index;
-
-    @Ensure({"array == {arg 1}",
-            "count() == {arg 1}.count()",
-            "index == 0"})
-    ArrayStackIterator(final ArrayStack<G> a_array) {
-        this.array = a_array;
-    }
-
-    public int count() {
-        return array.count() - index;
-    }
-
-    public boolean isEmpty() {
-        return index == array.count();
-    }
-
-    public void next() {
-        index++;
-    }
-
-    public G item() {
-        return array.item(index);
-    }
 }
