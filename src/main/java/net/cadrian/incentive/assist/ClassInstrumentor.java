@@ -39,15 +39,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class ClassInstrumentor {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ClassInstrumentor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ClassInstrumentor.class);
 
     private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
     private static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
     private static final String INVARIANT_METHOD_SIGNATURE = "()V";
     private static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
-    private static final String INVARIANT_ERROR_NAME = InvariantError.class
-            .getName();
+    private static final String INVARIANT_ERROR_NAME = InvariantError.class.getName();
 
     private final CtClass targetClass;
     private final ClassPool pool;
@@ -58,8 +56,7 @@ class ClassInstrumentor {
 
     final Instrumentor instrumentor;
 
-    public ClassInstrumentor(final CtClass targetClass, final ClassPool pool,
-            final Instrumentor instrumentor) throws NotFoundException {
+    public ClassInstrumentor(final CtClass targetClass, final ClassPool pool, final Instrumentor instrumentor) throws NotFoundException {
         this.instrumentor = instrumentor;
         this.targetClass = targetClass;
         this.pool = pool;
@@ -75,8 +72,7 @@ class ClassInstrumentor {
 
         methods = new ArrayList<MethodInstrumentor>();
         for (final CtMethod targetMethod : targetClass.getDeclaredMethods()) {
-            final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(
-                    this, targetMethod, pool, oldClassIndex++);
+            final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(this, targetMethod, pool, oldClassIndex++);
             methods.add(methodInstrumentor);
             behaviors.put(methodInstrumentor.getKey(), methodInstrumentor);
         }
@@ -84,11 +80,9 @@ class ClassInstrumentor {
         constructors = new ArrayList<ConstructorInstrumentor>();
         int index = 0;
         for (final CtConstructor constructor : targetClass.getConstructors()) {
-            final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(
-                    this, constructor, index++, pool, oldClassIndex++);
+            final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(this, constructor, index++, pool, oldClassIndex++);
             constructors.add(constructorInstrumentor);
-            behaviors.put(constructorInstrumentor.getKey(),
-                    constructorInstrumentor);
+            behaviors.put(constructorInstrumentor.getKey(), constructorInstrumentor);
         }
     }
 
@@ -108,16 +102,18 @@ class ClassInstrumentor {
         return behaviors.get(key);
     }
 
-    void instrument() throws CannotCompileException, NotFoundException,
-            ClassNotFoundException, CompileError, IOException {
+    void instrument() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
+        if (targetClass.isFrozen()) {
+            return;
+        }
+
         for (final ClassInstrumentor parent : parents) {
             parent.instrument();
         }
 
         if (targetClass.isInterface()) {
             // We're only instrumenting classes
-            LOG.debug("{} is an interface: not instrumented",
-                    targetClass.getName());
+            LOG.debug("{} is an interface: not instrumented", targetClass.getName());
             return;
         }
 
@@ -138,31 +134,31 @@ class ClassInstrumentor {
         }
     }
 
-    private void addPrivateFlag(final String flagName)
-            throws CannotCompileException {
+    private void _addPrivateFlag(final String flagName) throws CannotCompileException {
+        final CtField flagField = new CtField(CtClass.booleanType, flagName, targetClass);
+        flagField.setModifiers(Modifier.PRIVATE);
+        targetClass.addField(flagField);
+    }
+
+    private void addPrivateFlag(final String flagName) throws CannotCompileException {
         try {
-            targetClass.getField(flagName);
+            final CtField field = targetClass.getField(flagName);
+            if (field.getDeclaringClass() != targetClass) {
+                _addPrivateFlag(flagName);
+            }
         } catch (final NotFoundException x) {
-            final CtField flagField = new CtField(CtClass.booleanType,
-                    flagName, targetClass);
-            flagField.setModifiers(Modifier.PRIVATE);
-            targetClass.addField(flagField);
+            _addPrivateFlag(flagName);
         }
     }
 
-    boolean addClassInvariantCall(final CtBehavior a_behavior,
-            final boolean before, final boolean initialized)
-            throws CannotCompileException {
+    boolean addClassInvariantCall(final CtBehavior a_behavior, final boolean before, final boolean initialized) throws CannotCompileException {
 
         try {
-            targetClass.getMethod(INVARIANT_METHOD_NAME,
-                    INVARIANT_METHOD_SIGNATURE);
-            if (InstrumentorUtil.instrumentedWith(a_behavior,
-                    INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
-                    || a_behavior.getDeclaringClass().equals(
-                            pool.get("java.lang.Object"))
-                    || Modifier.isAbstract(a_behavior.getModifiers())
-                    || Modifier.isStatic(a_behavior.getModifiers())) {
+            targetClass.getMethod(INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE);
+            if (InstrumentorUtil.instrumentedWith(a_behavior, INVARIANT_METHOD_NAME, INVARIANT_METHOD_SIGNATURE)
+                || a_behavior.getDeclaringClass().equals(pool.get("java.lang.Object"))
+                || Modifier.isAbstract(a_behavior.getModifiers())
+                || Modifier.isStatic(a_behavior.getModifiers())) {
                 return false;
             }
         } catch (final NotFoundException x) {
@@ -173,23 +169,14 @@ class ClassInstrumentor {
         if (initialized) {
             // true for constructors; in that case, `before' is false
             // Note that in that case, the invariant flag is obviously false.
-            a_behavior.insertAfter(String.format("%s=true;",
-                    INITIALIZED_FLAG_VAR));
-            code = String.format("try{%s=true;%s();}finally{%s=false;}",
-                    INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
-                    INVARIANT_FLAG_VAR);
+            a_behavior.insertAfter(String.format("%s=true;", INITIALIZED_FLAG_VAR));
+            code = String.format("%s();", INVARIANT_METHOD_NAME);
         } else {
-            // Only verify invariant if the instance has been fully created,
-            // hence the "if(...)"
-            code = String.format(
-                    "if(%s&&!%s){try{%s=true;%s();}finally{%s=false;}}",
-                    INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR,
-                    INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME,
-                    INVARIANT_FLAG_VAR);
+            // Only verify invariant if the instance has been fully created, // hence the "if(...)"
+            code = String.format("if(%s&&!%s)%s();", INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME);
         }
 
-        LOG.debug("Adding {} {}: {}", new String[] {
-                before ? "before" : "after", a_behavior.getName(), code });
+        LOG.debug("Adding {} {}: {}", new String[] { before ? "before" : "after", a_behavior.getName(), code });
 
         if (before) {
             a_behavior.insertBefore(code);
@@ -199,27 +186,22 @@ class ClassInstrumentor {
         return true;
     }
 
-    private void addInvariantMethod() throws CannotCompileException,
-            ClassNotFoundException, CompileError {
-        final StringBuilder src = new StringBuilder(String.format(
-                "private void %s() {\n", INVARIANT_METHOD_NAME));
+    private void addInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
+        final StringBuilder src = new StringBuilder(String.format("private void %s() {try{%s=true;\n", INVARIANT_METHOD_NAME, INVARIANT_FLAG_VAR));
         addInvariantCode(src);
-        src.append('}');
+        src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
         final String code = src.toString();
-        LOG.debug("Adding to {}: {}", targetClass.getName(), code);
+        LOG.info("Invariant of {} is {}", targetClass.getName(), code);
         targetClass.addMethod(CtNewMethod.make(code, targetClass));
     }
 
-    private void addInvariantCode(final StringBuilder src)
-            throws ClassNotFoundException, CannotCompileException, CompileError {
+    private void addInvariantCode(final StringBuilder src) throws ClassNotFoundException, CannotCompileException, CompileError {
         for (final ClassInstrumentor parent : parents) {
             parent.addInvariantCode(src);
         }
-        final Invariant invariant = (Invariant) targetClass
-                .getAnnotation(Invariant.class);
+        final Invariant invariant = (Invariant) targetClass.getAnnotation(Invariant.class);
         if (invariant != null) {
-            src.append(InstrumentorUtil.parseAssertions(invariant.value(),
-                    targetClass, pool, INVARIANT_ERROR_NAME, getName()));
+            src.append(InstrumentorUtil.parseAssertions(invariant.value(), targetClass, pool, INVARIANT_ERROR_NAME, getName()));
         }
     }
 

@@ -46,11 +46,12 @@ import org.slf4j.LoggerFactory;
  *
  */
 public final class Instrumentor implements ClassFileTransformer {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(Instrumentor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Instrumentor.class);
 
     private final Map<String, byte[]> instrumentedClasses;
     private final String cacheDirectory;
+
+    static final ClassPool mainPool = new ClassPool(true);
 
     /**
      * The javaagent main method
@@ -78,9 +79,7 @@ public final class Instrumentor implements ClassFileTransformer {
                 if (!classfileDir.exists()) {
                     classfileDir.mkdirs();
                 }
-                LOG.debug(
-                        "Using cache directory for instrumented class files: {}",
-                        classfileDir);
+                LOG.debug("Using cache directory for instrumented class files: {}", classfileDir);
             }
         }
     }
@@ -93,8 +92,7 @@ public final class Instrumentor implements ClassFileTransformer {
             if (equalsIndex == 0) {
                 LOG.warn("Invalid option: '" + token + "'.");
             } else {
-                final String name = token.substring(0, equalsIndex)
-                        .toLowerCase();
+                final String name = token.substring(0, equalsIndex).toLowerCase();
                 if (Option.has(name)) {
                     final String value;
                     if (equalsIndex == -1) {
@@ -113,15 +111,15 @@ public final class Instrumentor implements ClassFileTransformer {
 
     @Override
     public byte[] transform(final ClassLoader loader,
-            final String classNameWithSlashes,
-            final Class<?> classBeingRedefined,
-            final ProtectionDomain protectionDomain,
-            final byte[] classfileBuffer) {
+                            final String classNameWithSlashes,
+                            final Class<?> classBeingRedefined,
+                            final ProtectionDomain protectionDomain,
+                            final byte[] classfileBuffer) {
         if (classNameWithSlashes.startsWith("sunw/")
-                || classNameWithSlashes.startsWith("sun/")
-                || classNameWithSlashes.startsWith("java/")
-                || classNameWithSlashes.startsWith("javax/")
-                || classNameWithSlashes.startsWith("com/sun/")) {
+            || classNameWithSlashes.startsWith("sun/")
+            || classNameWithSlashes.startsWith("java/")
+            || classNameWithSlashes.startsWith("javax/")
+            || classNameWithSlashes.startsWith("com/sun/")) {
             return classfileBuffer;
         }
 
@@ -129,8 +127,7 @@ public final class Instrumentor implements ClassFileTransformer {
         // ClassPool wants the name to be like "java.lang.Object".
         final String className = classNameWithSlashes.replace('/', '.');
 
-        if (Option.limit.isSet()
-                && !Pattern.matches(Option.limit.getValue(), className)) {
+        if (Option.limit.isSet() && !Pattern.matches(Option.limit.getValue(), className)) {
             return classfileBuffer;
         }
 
@@ -141,9 +138,8 @@ public final class Instrumentor implements ClassFileTransformer {
 
             // Make sure that all parents with contracts are instrumented first,
             // so that their contracts are available to this class to use.
-            final List<CtClass> classHierarchy = InstrumentorUtil
-                    .getParents(targetClass);
-            for (int i = classHierarchy.size(); i-- > 0;) {
+            final List<CtClass> classHierarchy = InstrumentorUtil.getParents(targetClass);
+            for (int i = classHierarchy.size(); i --> 0;) {
                 instrumentClass(classHierarchy.get(i), pool);
             }
 
@@ -177,35 +173,29 @@ public final class Instrumentor implements ClassFileTransformer {
         }
     }
 
-    private ClassPool makePool(final ClassLoader loader,
-            final byte[] classfileBuffer, final String className) {
-        final ClassPool pool = new ClassPool(true);
+    private ClassPool makePool(final ClassLoader loader, final byte[] classfileBuffer, final String className) {
+        final ClassPool pool = new ClassPool(mainPool);
         if (loader == null) {
             pool.appendSystemPath();
         } else {
             pool.insertClassPath(new LoaderClassPath(loader));
         }
 
-        // If this class has already been instrumented before, make sure to
-        // use that code
-        if (classfileBuffer != null && classfileBuffer.length > 0) {
-            pool.insertClassPath(new ByteArrayClassPath(className,
-                    classfileBuffer));
-        }
-        final byte[] byteCode = instrumentedClasses.get(className);
-        if (byteCode != null && byteCode.length > 0) {
-            pool.insertClassPath(new ByteArrayClassPath(className, byteCode));
-        }
+        //// If this class has already been instrumented before, make sure to
+        //// use that code
+        //if (classfileBuffer != null && classfileBuffer.length > 0) {
+        //    pool.insertClassPath(new ByteArrayClassPath(className, classfileBuffer));
+        //}
+        //final byte[] byteCode = instrumentedClasses.get(className);
+        //if (byteCode != null && byteCode.length > 0) {
+        //    pool.insertClassPath(new ByteArrayClassPath(className, byteCode));
+        //}
         return pool;
     }
 
-    private byte[] instrumentClass(final CtClass a_targetClass,
-            final ClassPool a_pool) throws NotFoundException,
-            CannotCompileException, IOException, ClassNotFoundException,
-            CompileError {
+    private byte[] instrumentClass(final CtClass a_targetClass, final ClassPool a_pool) throws NotFoundException, CannotCompileException, IOException, ClassNotFoundException, CompileError {
         final String targetClassName = a_targetClass.getName();
-        final ClassInstrumentor classInstrumentor = new ClassInstrumentor(
-                a_targetClass, a_pool, this);
+        final ClassInstrumentor classInstrumentor = new ClassInstrumentor(a_targetClass, a_pool, this);
 
         byte[] byteCode = instrumentedClasses.get(targetClassName);
         if (byteCode != null) {

@@ -25,7 +25,7 @@ public interface Iterable<G> {
      * @return a new iterator on the objects in the collection
      */
     @Ensure({"{result} != null",
-            "(count() == 0) == ({result}.isOff()"})
+            "(count() == 0) == ({result}.isEmpty())"})
     public Iterator<G> iterator();
 
     /**
