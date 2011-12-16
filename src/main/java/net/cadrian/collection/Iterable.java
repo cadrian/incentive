@@ -6,7 +6,7 @@ import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.Require;
 
 @DBC
-@Invariant({ "count() >= 0" })
+@Invariant("count() >= 0")
 public interface Iterable<G> {
 
     /**
