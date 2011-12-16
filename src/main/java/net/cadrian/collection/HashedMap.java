@@ -1,6 +1,9 @@
 package net.cadrian.collection;
 
+import java.lang.reflect.Array;
+
 import net.cadrian.incentive.DBC;
+import net.cadrian.incentive.Ensure;
 import net.cadrian.incentive.Invariant;
 
 @DBC
@@ -11,7 +14,7 @@ import net.cadrian.incentive.Invariant;
         "orderedKeys.length == keys.length"})
 public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implements WritableMap<K, V> {
 
-    private static final int INDEX_NOT_FOUND = -1;
+    private static final int MAP_FULL = -1;
 
     private K[] keys;
     private V[] values;
@@ -19,6 +22,7 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
 
     private K[] orderedKeys;
 
+    @Ensure("count() == 0")
     public HashedMap() {
         @SuppressWarnings("unchecked")
         final K[] newKeys = (K[])new Object[4];
@@ -35,16 +39,17 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
     private int _indexOf(final K[] _keys, final K key) {
         // we use Python's method of hashing keys
         int hash = key.hashCode();
-        final int initial = hash % _keys.length;
+        final int mask = _keys.length - 1;
+        final int initial = hash & mask;
         int result = initial;
         boolean collided = false;
-        while (_keys[result] != null && !key.equals(_keys[result]) && result != initial) {
+        while (_keys[result] != null && !_keys[result].equals(key) && result != initial) {
             hash >>= 5;
-            result = (5 * result + 1 + hash) % _keys.length;
+            result = (5 * result + 1 + hash) & mask;
             collided = true;
         }
         if (collided && result == initial) {
-            result = INDEX_NOT_FOUND;
+            result = MAP_FULL;
         }
         return result;
     }
@@ -74,61 +79,100 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
 
     private int indexOf(final K key) {
         int result = _indexOf(keys, key);
-        while (result == INDEX_NOT_FOUND) {
+        while (result == MAP_FULL) {
             grow();
             result = _indexOf(keys, key);
         }
         return result;
     }
 
+    @Override
     public int count() {
         return count;
     }
 
+    @Override
     public boolean isEmpty() {
         return count == 0;
     }
 
+    @Override
     public boolean has(final K key) {
-        return _indexOf(keys, key) != INDEX_NOT_FOUND;
+        final int index = _indexOf(keys, key);
+        return index != MAP_FULL && keys[index] != null;
     }
 
+    @Override
     public V at(final K key) {
         return values[_indexOf(keys, key)];
     }
 
+    @Override
     public V ref(final K key) {
         final int index = _indexOf(keys, key);
-        if (index == INDEX_NOT_FOUND) return null;
+        if (index == MAP_FULL || keys[index] == null) {
+            return null;
+        }
         return values[index];
     }
 
+    @Override
     public K key(final int index) {
         return orderedKeys[index];
     }
 
+    @Override
     public V value(final int index) {
         return at(orderedKeys[index]);
     }
 
+    @Override
     public MapEntry<K, V> item(final int index) {
-        final K k = orderedKeys[index];
-        return new MapEntry<K, V>(k, at(k));
+        final K key = orderedKeys[index];
+        return new MapEntry<K, V>(key, at(key));
     }
 
+    @Override
     public void add(final K key, final V value) {
-        // TODO
+        final int index = indexOf(key);
+        keys[index] = key;
+        values[index] = value;
+        orderedKeys[count++] = key;
     }
 
+    @Override
     public void put(final K key, final V value) {
-        // TODO
+        final int index = indexOf(key);
+        if (keys[index] == null) {
+            keys[index] = key;
+            orderedKeys[count++] = key;
+        }
+        values[index] = value;
     }
 
+    @Override
     public MapEntry<K, V>[] toArray(final MapEntry<K, V>[] array) {
-        // TODO
-        return null;
+        final MapEntry<K, V>[] result;
+        if (array == null) {
+            @SuppressWarnings("unchecked")
+            final MapEntry<K, V>[] newArray = (MapEntry<K, V>[])new Object[count()];
+            result = newArray;
+        }
+        else if (array.length < count()) {
+            @SuppressWarnings("unchecked")
+            final MapEntry<K, V>[] newArray = (MapEntry<K, V>[])Array.newInstance(array.getClass().getComponentType(), count());
+            result = newArray;
+        }
+        else {
+            result = array;
+        }
+        for (int i = 0; i < count; i++) {
+            result[i] = item(i);
+        }
+        return result;
     }
 
+    @Override
     public Iterator<MapEntry<K, V>> iterator() {
         // TODO
         return null;
