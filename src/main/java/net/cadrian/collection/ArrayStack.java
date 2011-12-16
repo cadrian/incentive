@@ -54,6 +54,7 @@ public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
         return items.item(len - index);
     }
 
+    @Override
     public G[] toArray(final G[] array) {
         final G[] result = items.toArray(array);
         final int len = count();
@@ -68,6 +69,7 @@ public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
         return result;
     }
 
+    @Override
     public Iterator<G> iterator() {
         return new ArrayStackIterator<G>(this);
     }
@@ -80,7 +82,9 @@ class ArrayStackIterator<G> extends AbstractIterator<G> {
     private final ArrayStack<G> array;
     private int index;
 
-    @Ensure({"array == {arg 1}", "count() == {arg 1}.count()", "index == 0"})
+    @Ensure({"array == {arg 1}",
+            "count() == {arg 1}.count()",
+            "index == 0"})
     ArrayStackIterator(final ArrayStack<G> a_array) {
         this.array = a_array;
     }
