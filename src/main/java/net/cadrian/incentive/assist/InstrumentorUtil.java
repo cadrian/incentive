@@ -196,10 +196,8 @@ final class InstrumentorUtil {
             final String transformed = transform(assertion, targetClass, pool,
                     codecs);
             if (transformed != null) {
-                src.append(String
-                        .format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s\");}\n",
-                                transformed, errorClassName, errorMessage,
-                                errorClassName, errorMessage));
+                src.append(String.format("{boolean b=false;try{b=(%s);}\ncatch(Throwable t){throw new %s(\"%s: {%s}, \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s: {%s} is broken\");}\n",
+                                         transformed, errorClassName, errorMessage, assertion, errorClassName, errorMessage, assertion));
             }
         }
         return src.toString();
