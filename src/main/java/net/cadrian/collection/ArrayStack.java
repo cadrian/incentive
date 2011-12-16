@@ -2,6 +2,7 @@ package net.cadrian.collection;
 
 import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
+import net.cadrian.incentive.Invariant;
 
 /**
  * A {@link Stack} implemented using a simple array
@@ -11,7 +12,8 @@ import net.cadrian.incentive.Ensure;
  * @param <G>
  */
 @DBC
-public class ArrayStack<G> implements Stack<G> {
+@Invariant("items != null")
+public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
 
     private final RingArray<G> items;
 

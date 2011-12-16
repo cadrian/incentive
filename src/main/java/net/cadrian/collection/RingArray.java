@@ -15,7 +15,7 @@ import net.cadrian.incentive.Require;
  * @param <G>
  */
 @DBC
-public class RingArray<G> implements Collection<G> {
+public class RingArray<G> extends AbstractCollection<G> {
 
     private G[] items;
     private int lower;
@@ -93,7 +93,7 @@ public class RingArray<G> implements Collection<G> {
      */
     @Require("count() > 0")
     @Ensure({"count() == {old count()} - 1",
-            "count() == 0 || item(0) == {old count()==1 ? null : item(1)}"})
+            "count() == 0 || item(0) == {old count() < 2 ? null : item(1)}"})
     public void removeFirst() {
         count--;
         lower = (lower + 1) % items.length;
@@ -134,4 +134,36 @@ public class RingArray<G> implements Collection<G> {
         return result;
     }
 
+    public Iterator<G> iterator() {
+        return new RingArrayIterator<G>(this);
+    }
+
+}
+
+@DBC
+class RingArrayIterator<G> extends AbstractIterator<G> {
+
+    private final RingArray<G> array;
+    private int index;
+
+    @Ensure({"array == {arg 1}", "count() == {arg 1}.count()", "index == 0"})
+    RingArrayIterator(final RingArray<G> a_array) {
+        this.array = a_array;
+    }
+
+    public int count() {
+        return array.count() - index;
+    }
+
+    public boolean isEmpty() {
+        return index == array.count();
+    }
+
+    public void next() {
+        index++;
+    }
+
+    public G item() {
+        return array.item(index);
+    }
 }
