@@ -170,7 +170,7 @@ class ClassInstrumentor {
             // true for constructors; in that case, `before' is false
             // Note that in that case, the invariant flag is obviously false.
             a_behavior.insertAfter(String.format("%s=true;", INITIALIZED_FLAG_VAR));
-            code = String.format("%s();", INVARIANT_METHOD_NAME);
+            code = String.format("if(getClass()==%s.class)%s();", targetClass.getName(), INVARIANT_METHOD_NAME);
         } else {
             // Only verify invariant if the instance has been fully created, // hence the "if(...)"
             code = String.format("if(%s&&!%s)%s();", INITIALIZED_FLAG_VAR, INVARIANT_FLAG_VAR, INVARIANT_METHOD_NAME);
