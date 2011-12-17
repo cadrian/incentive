@@ -26,7 +26,7 @@ public interface WritableMap<K, V> extends Map<K, V> {
      * @param key the key to add
      * @param value the value of the key
      */
-    @Require("!has({arg 1}")
+    @Require("!has({arg 1})")
     @Ensure({"count() == {old count()} + 1",
             "has({arg 1})",
             "at({arg 1}) == {arg 2}"})
