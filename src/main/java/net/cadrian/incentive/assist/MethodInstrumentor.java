@@ -24,31 +24,33 @@ import javassist.Modifier;
 import javassist.NotFoundException;
 
 class MethodInstrumentor extends BehaviorInstrumentor {
-    private static final String PRECONDITION_NAME(final String name) {
-        return String.format("__incentive_req_%s__", name);
+    private static final String PRECONDITION_NAME(final int index, final String name) {
+        return String.format("__incentive_req%d_%s__", index, name);
     }
 
-    private static final String POSTCONDITION_NAME(final String name) {
-        return String.format("__incentive_ens_%s__", name);
+    private static final String POSTCONDITION_NAME(final int index, final String name) {
+        return String.format("__incentive_ens%d_%s__", index, name);
     }
 
     private final CtMethod method;
+    private final int index;
 
     public MethodInstrumentor(final ClassInstrumentor a_classInstrumentor,
-            final CtMethod a_targetMethod, final ClassPool a_pool,
+                              final CtMethod a_targetMethod, final int a_index, final ClassPool a_pool,
             final int oldClassIndex) {
         super(a_classInstrumentor, a_targetMethod, a_pool, oldClassIndex);
         this.method = a_targetMethod;
+        this.index = a_index;
     }
 
     @Override
     protected String getPreconditionName() {
-        return PRECONDITION_NAME(method.getName());
+        return PRECONDITION_NAME(index, method.getName());
     }
 
     @Override
     protected String getPostconditionName() {
-        return POSTCONDITION_NAME(method.getName());
+        return POSTCONDITION_NAME(index, method.getName());
     }
 
     @Override

@@ -71,16 +71,17 @@ class ClassInstrumentor {
         behaviors = new HashMap<String, BehaviorInstrumentor>();
 
         methods = new ArrayList<MethodInstrumentor>();
+        int mindex = 0;
         for (final CtMethod targetMethod : targetClass.getDeclaredMethods()) {
-            final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(this, targetMethod, pool, oldClassIndex++);
+            final MethodInstrumentor methodInstrumentor = new MethodInstrumentor(this, targetMethod, mindex++, pool, oldClassIndex++);
             methods.add(methodInstrumentor);
             behaviors.put(methodInstrumentor.getKey(), methodInstrumentor);
         }
 
         constructors = new ArrayList<ConstructorInstrumentor>();
-        int index = 0;
+        int cindex = 0;
         for (final CtConstructor constructor : targetClass.getConstructors()) {
-            final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(this, constructor, index++, pool, oldClassIndex++);
+            final ConstructorInstrumentor constructorInstrumentor = new ConstructorInstrumentor(this, constructor, cindex++, pool, oldClassIndex++);
             constructors.add(constructorInstrumentor);
             behaviors.put(constructorInstrumentor.getKey(), constructorInstrumentor);
         }
@@ -191,8 +192,10 @@ class ClassInstrumentor {
         addInvariantCode(src);
         src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
         final String code = src.toString();
-        LOG.info("Invariant of {} is {}", targetClass.getName(), code);
-        targetClass.addMethod(CtNewMethod.make(code, targetClass));
+        final CtMethod invariant = CtNewMethod.make(code, targetClass);
+        invariant.setModifiers(Modifier.PRIVATE);
+        LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
+        targetClass.addMethod(invariant);
     }
 
     private void addInvariantCode(final StringBuilder src) throws ClassNotFoundException, CannotCompileException, CompileError {
