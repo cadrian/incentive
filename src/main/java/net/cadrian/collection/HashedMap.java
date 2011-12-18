@@ -51,14 +51,6 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
             }
         }
 
-        final StringBuilder b = new StringBuilder(" **** indexOf([");
-        for (int i=0; i<_keys.length; i++) {
-            if (i>0) b.append(", ");
-            b.append(_keys[i]);
-        }
-        b.append("], ").append(key).append(") = ").append(result);
-        new Exception(b.toString()).printStackTrace();
-
         return result;
     }
 
