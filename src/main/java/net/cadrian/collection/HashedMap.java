@@ -42,25 +42,35 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
         final int mask = _keys.length - 1;
         final int initial = hash & mask;
         int result = initial;
-        boolean collided = false;
-        while (_keys[result] != null && !_keys[result].equals(key) && result != initial) {
+        while (_keys[result] != null && !_keys[result].equals(key)) {
             hash >>= 5;
             result = (5 * result + 1 + hash) & mask;
-            collided = true;
+            if (result == initial) {
+                result = MAP_FULL;
+                break;
+            }
         }
-        if (collided && result == initial) {
-            result = MAP_FULL;
+
+        final StringBuilder b = new StringBuilder(" **** indexOf([");
+        for (int i=0; i<_keys.length; i++) {
+            if (i>0) b.append(", ");
+            b.append(_keys[i]);
         }
+        b.append("], ").append(key).append(") = ").append(result);
+        new Exception(b.toString()).printStackTrace();
+
         return result;
     }
 
     private void grow() {
+        final int newCapacity = keys.length * 2;
+
         @SuppressWarnings("unchecked")
-        final K[] newKeys = (K[])new Object[keys.length*2];
+        final K[] newKeys = (K[])new Object[newCapacity];
         @SuppressWarnings("unchecked")
-        final K[] newOrderedKeys = (K[])new Object[4];
+        final K[] newOrderedKeys = (K[])new Object[newCapacity];
         @SuppressWarnings("unchecked")
-        final V[] newValues = (V[])new Object[values.length*2];
+        final V[] newValues = (V[])new Object[newCapacity];
 
         for (int i = 0; i < keys.length; i++) {
             if (keys[i] != null) {

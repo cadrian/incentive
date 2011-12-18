@@ -19,6 +19,7 @@ public class TestHashedMap {
     public void testNominal() {
         final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
         assertEquals(0, map.count());
+
         map.add(1, "foo");
         assertEquals(1, map.count());
         assertEquals(Integer.valueOf(1), map.key(0));
@@ -26,6 +27,7 @@ public class TestHashedMap {
         assertEquals("foo", map.at(1));
         assertEquals("foo", map.ref(1));
         assertNull(map.ref(2));
+
         map.add(2, "bar");
         assertEquals(2, map.count());
         assertEquals(Integer.valueOf(1), map.key(0));
@@ -57,6 +59,44 @@ public class TestHashedMap {
         final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
         map.add(1, "foo");
         map.add(1, "bar");
+    }
+
+    /**
+     * Nominal case with array rehash
+     */
+    @Test
+    public void testRehash() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(3, "three");
+        map.add(4, "four");
+        map.add(5, "five");
+        map.add(6, "six");
+
+        assertEquals(6, map.count());
+        assertEquals("one", map.at(1));
+        assertEquals("two", map.at(2));
+        assertEquals("three", map.at(3));
+        assertEquals("four", map.at(4));
+        assertEquals("five", map.at(5));
+        assertEquals("six", map.at(6));
+    }
+
+    /**
+     * Nominal case with collision
+     */
+    @Test
+    public void testCollision() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        assertEquals(3, map.count());
+        assertEquals("one", map.at(1));
+        assertEquals("two", map.at(2));
+        assertEquals("five", map.at(5));
     }
 
 }
