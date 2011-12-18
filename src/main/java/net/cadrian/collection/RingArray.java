@@ -53,7 +53,9 @@ public class RingArray<G> extends AbstractCollection<G> {
      * @param element
      *            the element to add
      */
-    @Ensure({"count() == {old count()} + 1", "item(count()-1) == {arg 1}"})
+    @Ensure({"count() == {old count()} + 1",
+            "item(count()-1) == {arg 1}",
+            "generation() == {old generation()} + 1"})
     public void addLast(final G element) {
         if (count == items.length) {
             makeRoom();
@@ -61,15 +63,18 @@ public class RingArray<G> extends AbstractCollection<G> {
         final int index = (lower + count) % items.length;
         items[index] = element;
         count++;
+        generation++;
     }
 
     /**
      * Remove the last element
      */
     @Require("count() > 0")
-    @Ensure("count() == {old count()} - 1")
+    @Ensure({"count() == {old count()} - 1",
+            "generation() == {old generation()} + 1"})
     public void removeLast() {
         count--;
+        generation++;
     }
 
     /**
@@ -78,7 +83,9 @@ public class RingArray<G> extends AbstractCollection<G> {
      * @param element
      *            the element to insert
      */
-    @Ensure({"count() == {old count()} + 1", "item(0) == {arg 1}"})
+    @Ensure({"count() == {old count()} + 1",
+            "item(0) == {arg 1}",
+            "generation() == {old generation()} + 1"})
     public void addFirst(final G element) {
         if (count == items.length) {
             makeRoom();
@@ -86,6 +93,7 @@ public class RingArray<G> extends AbstractCollection<G> {
         lower = (lower - 1 + items.length) % items.length;
         items[lower] = element;
         count++;
+        generation++;
     }
 
     /**
@@ -93,10 +101,12 @@ public class RingArray<G> extends AbstractCollection<G> {
      */
     @Require("count() > 0")
     @Ensure({"count() == {old count()} - 1",
-            "count() == 0 || item(0) == {old count() < 2 ? null : item(1)}"})
+            "count() == 0 || item(0) == {old count() < 2 ? null : item(1)}",
+            "generation() == {old generation()} + 1"})
     public void removeFirst() {
         count--;
         lower = (lower + 1) % items.length;
+        generation++;
     }
 
     @Require("{arg 1}.length >= count()")

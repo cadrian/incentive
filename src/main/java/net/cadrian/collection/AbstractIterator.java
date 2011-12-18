@@ -17,6 +17,7 @@ abstract class AbstractIterator<G, I extends Iterable<G>> implements Iterator<G>
     }
 
     @Override
+    @Ensure("{result} == (generation == iterable.generation())")
     public boolean isValid() {
         return iterable.generation() == generation;
     }

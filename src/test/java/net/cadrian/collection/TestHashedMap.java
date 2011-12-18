@@ -116,4 +116,48 @@ public class TestHashedMap {
         assertEquals("five", map.at(5));
     }
 
+    /**
+     * iterator
+     */
+    @Test
+    public void testIterator() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        map.del(1);
+
+        final Iterator<MapEntry<Integer, String>> iter = map.iterator();
+        assertEquals(2, iter.count());
+        assertEquals(Integer.valueOf(2), iter.item().key);
+        assertEquals("two", iter.item().value);
+        iter.next();
+        assertEquals(1, iter.count());
+        assertEquals(Integer.valueOf(5), iter.item().key);
+        assertEquals("five", iter.item().value);
+        iter.next();
+        assertEquals(0, iter.count());
+    }
+
+    /**
+     * iterator on changed underlying map
+     */
+    @Test(expected = RequireError.class)
+    public void testIteratorNextGeneration() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        final Iterator<MapEntry<Integer, String>> iter = map.iterator();
+        assertEquals(3, iter.count());
+        assertEquals(Integer.valueOf(1), iter.item().key);
+        assertEquals("one", iter.item().value);
+
+        map.del(1);
+
+        iter.next();
+    }
+
 }

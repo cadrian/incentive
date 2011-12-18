@@ -16,7 +16,8 @@ public interface WritableMap<K, V> extends Map<K, V> {
      */
     @Ensure({"{old has({arg 1})} || (count() == {old count()} + 1)",
             "has({arg 1})",
-            "at({arg 1}) == {arg 2}"})
+            "at({arg 1}) == {arg 2}",
+            "generation() == {old generation()} + 1"})
     void put(K key, V value);
 
     /**
@@ -29,14 +30,17 @@ public interface WritableMap<K, V> extends Map<K, V> {
     @Require("!has({arg 1})")
     @Ensure({"count() == {old count()} + 1",
             "has({arg 1})",
-            "at({arg 1}) == {arg 2}"})
+            "at({arg 1}) == {arg 2}",
+            "generation() == {old generation()} + 1"})
     void add(K key, V value);
 
     /**
      * Remove a key from the Map.
      */
     @Require("has({arg 1})")
-    @Ensure({"count() == {old count()} - 1", "!has({arg 1})"})
+    @Ensure({"count() == {old count()} - 1",
+            "!has({arg 1})",
+            "generation() == {old generation()} + 1"})
     void del(K key);
 
 }

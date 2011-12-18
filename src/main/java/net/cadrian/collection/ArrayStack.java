@@ -39,13 +39,17 @@ public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
     }
 
     @Override
+    @Ensure("generation() == {old generation()} + 1")
     public <E extends G> void push(final E element) {
         items.addFirst(element);
+        generation++;
     }
 
     @Override
+    @Ensure("generation() == {old generation()} + 1")
     public void pop() {
         items.removeFirst();
+        generation++;
     }
 
     @Override

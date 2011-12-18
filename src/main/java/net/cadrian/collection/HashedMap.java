@@ -191,6 +191,7 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
         used[index] = true;
         values[index] = value;
         count++;
+        generation++;
     }
 
     @Override
@@ -203,6 +204,7 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
         }
         used[index] = true;
         values[index] = value;
+        generation++;
     }
 
     @Override
@@ -212,6 +214,7 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
         values[index] = null;
         // but used[index] stays true to enable to follow collisions
         count--;
+        generation++;
     }
 
     @Override
@@ -243,6 +246,7 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
 
 }
 
+@DBC
 class HashedMapIterator<K, V> extends AbstractIterator<MapEntry<K, V>, HashedMap<K, V>> {
 
     private final HashedMap.IterationCache cache;
