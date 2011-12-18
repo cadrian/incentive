@@ -48,7 +48,7 @@ class DefaultCollectionIterator<G> extends AbstractIterator<G, AbstractCollectio
 
     private int index;
 
-    @Ensure({"collection == {arg 1}",
+    @Ensure({"iterable == {arg 1}",
             "count() == {arg 1}.count()",
             "index == 0",
             "generation == {arg 1}.generation()"})

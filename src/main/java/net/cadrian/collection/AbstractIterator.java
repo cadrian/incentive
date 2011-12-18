@@ -7,7 +7,7 @@ import net.cadrian.incentive.Ensure;
 abstract class AbstractIterator<G, I extends Iterable<G>> implements Iterator<G> {
 
     protected final I iterable;
-    private final int generation;
+    protected final int generation;
 
     @Ensure({"iterable == {arg 1}",
             "generation == {arg 1}.generation()"})
