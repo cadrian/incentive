@@ -44,7 +44,7 @@ abstract class AbstractCollection<G> implements Collection<G> {
 }
 
 @DBC
-class DefaultCollectionIterator<G> extends AbstractIterator<G> {
+class DefaultCollectionIterator<G> extends AbstractIterator<G, AbstractCollection<G>> {
 
     private int index;
 
@@ -58,12 +58,12 @@ class DefaultCollectionIterator<G> extends AbstractIterator<G> {
 
     @Override
     public int count() {
-        return collection.count() - index;
+        return iterable.count() - index;
     }
 
     @Override
     public boolean isEmpty() {
-        return index == collection.count();
+        return index == iterable.count();
     }
 
     @Override
@@ -73,7 +73,7 @@ class DefaultCollectionIterator<G> extends AbstractIterator<G> {
 
     @Override
     public G item() {
-        return collection.item(index);
+        return iterable.item(index);
     }
 
 }

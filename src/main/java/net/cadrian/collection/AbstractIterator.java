@@ -4,21 +4,21 @@ import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
 
 @DBC
-abstract class AbstractIterator<G> implements Iterator<G> {
+abstract class AbstractIterator<G, I extends Iterable<G>> implements Iterator<G> {
 
-    protected final Collection<G> collection;
+    protected final I iterable;
     private final int generation;
 
-    @Ensure({"collection == {arg 1}",
+    @Ensure({"iterable == {arg 1}",
             "generation == {arg 1}.generation()"})
-    AbstractIterator(final Collection<G> a_collection) {
-        this.collection = a_collection;
-        this.generation = a_collection.generation();
+    AbstractIterator(final I a_iterable) {
+        this.iterable = a_iterable;
+        this.generation = a_iterable.generation();
     }
 
     @Override
     public boolean isValid() {
-        return collection.generation() == generation;
+        return iterable.generation() == generation;
     }
 
     @Override

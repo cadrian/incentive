@@ -238,8 +238,40 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
 
     @Override
     public Iterator<MapEntry<K, V>> iterator() {
-        // TODO
-        return null;
+        return new HashedMapIterator<K, V>(this, new IterationCache());
+    }
+
+}
+
+class HashedMapIterator<K, V> extends AbstractIterator<MapEntry<K, V>, HashedMap<K, V>> {
+
+    private final HashedMap.IterationCache cache;
+    private int index;
+
+    HashedMapIterator(HashedMap<K, V> map, HashedMap.IterationCache cache) {
+        super(map);
+        this.cache = cache;
+        index = 0;
+    }
+
+    @Override
+    public int count() {
+        return iterable.count() - index;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return index == iterable.count();
+    }
+
+    @Override
+    public MapEntry<K, V> item() {
+        return iterable.cachedItem(index, cache);
+    }
+
+    @Override
+    public void next() {
+        index++;
     }
 
 }
