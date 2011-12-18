@@ -1,14 +1,38 @@
 package net.cadrian.collection;
 
 import net.cadrian.incentive.DBC;
+import net.cadrian.incentive.Ensure;
 
 @DBC
 abstract class AbstractIterator<G> implements Iterator<G> {
 
+    protected final Collection<G> collection;
+    private final int generation;
+
+    @Ensure({"collection == {arg 1}",
+            "generation == {arg 1}.generation()"})
+    AbstractIterator(final Collection<G> a_collection) {
+        this.collection = a_collection;
+        this.generation = a_collection.generation();
+    }
+
+    @Override
+    public boolean isValid() {
+        return collection.generation() == generation;
+    }
+
+    @Override
+    @Ensure("{result} == generation")
+    public int generation() {
+        return generation;
+    }
+
+    @Override
     public Iterator<G> iterator() {
         return this;
     }
 
+    @Override
     public <T> Map<G, T> map(final Agent<G, T> mapper) {
         final WritableMap<G, T> result = new HashedMap<G, T>();
         while (!isEmpty()) {
@@ -19,6 +43,7 @@ abstract class AbstractIterator<G> implements Iterator<G> {
         return result;
     }
 
+    @Override
     public <T> T reduce(final Agent<G, T> reducer, final T seed) {
         T result = seed;
         while (!isEmpty()) {
@@ -28,6 +53,7 @@ abstract class AbstractIterator<G> implements Iterator<G> {
         return result;
     }
 
+    @Override
     public void doAll(final Agent<G, Void> agent) {
         while (!isEmpty()) {
             agent.run(item(), null);

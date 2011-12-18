@@ -146,7 +146,7 @@ abstract class BehaviorInstrumentor {
     }
 
     private void definePreconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
-        LOG.info("Computing precondition of {}", behavior.getLongName());
+        LOG.debug("Computing precondition of {}", behavior.getLongName());
         final StringBuilder src = new StringBuilder(String.format("{\n%s err=null;\n", RequireError.class.getName()));
         fillPreconditionClass();
         src.append(String.format("final %s result = new %s();\n/*precondition old*/\n", oldClassName, oldClassName));
@@ -159,10 +159,10 @@ abstract class BehaviorInstrumentor {
         try {
             precondition = CtNewMethod.make(oldValuesClass, getPreconditionName(), behavior.getParameterTypes(), new CtClass[0], code, targetClass);
             precondition.setModifiers(Modifier.PRIVATE);
-            LOG.info("Precondition of {} is {}{}", new Object[] { behavior.getLongName(), precondition, code });
+            LOG.debug("Precondition of {} is {}{}", new Object[] { behavior.getLongName(), precondition, code });
         }
         catch (CannotCompileException ccx) {
-            LOG.info(" *** CODE: {}", code, ccx);
+            LOG.error(" *** CODE: {}", code, ccx);
             throw ccx;
         }
         setPreconditionModifiers(precondition);
@@ -273,7 +273,7 @@ abstract class BehaviorInstrumentor {
     }
 
     private void definePostconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError {
-        LOG.info("Computing postcondition of {}", behavior.getLongName());
+        LOG.debug("Computing postcondition of {}", behavior.getLongName());
         final StringBuilder src = new StringBuilder("{\n/*postcondition code*/\n");
         addPostconditionCode(new HashSet<CtClass>(), src, null);
         src.append('}');
@@ -295,10 +295,10 @@ abstract class BehaviorInstrumentor {
         try {
             postcondition = CtNewMethod.make(CtClass.voidType, getPostconditionName(), params, new CtClass[0], code, targetClass);
             postcondition.setModifiers(Modifier.PRIVATE);
-            LOG.info("Postcondition of {} is {}{}", new Object[] { behavior.getLongName(), postcondition, code });
+            LOG.debug("Postcondition of {} is {}{}", new Object[] { behavior.getLongName(), postcondition, code });
         }
         catch (CannotCompileException ccx) {
-            LOG.info(" *** CODE: {}", code, ccx);
+            LOG.error(" *** CODE: {}", code, ccx);
             throw ccx;
         }
         targetClass.addMethod(postcondition);

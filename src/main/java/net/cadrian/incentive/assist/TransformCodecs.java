@@ -87,7 +87,7 @@ final class TransformCodecs {
             while (matcher.find()) {
                 final String src = matcher.group(1);
                 final CtClass type = expressionType(src, targetClass, pool, symbolTable);
-                LOG.info("Type of old{} is {}", index, type.getName());
+                LOG.debug("Type of old{} is {}", index, type.getName());
                 final CtField field = new CtField(type, String.format("old%d", index++), preconditionClass);
                 field.setModifiers(Modifier.PUBLIC);
                 preconditionClass.addField(field);

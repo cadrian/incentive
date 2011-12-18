@@ -14,13 +14,20 @@ import net.cadrian.incentive.Require;
 public interface Iterator<G> extends Iterable<G> {
 
     /**
+     * @return <code>true</code> if this Iterator is still useable
+     * (i.e. the generation of the spawning Iterable did not change),
+     * <code>false</code> otherwise
+     */
+    boolean isValid();
+
+    /**
      * Go to the next element
      */
-    @Require("!isEmpty()")
+    @Require({"isValid()", "!isEmpty()"})
     @Ensure("count() == {old count()} - 1")
     void next();
 
-    @Require("!isEmpty()")
+    @Require({"isValid()", "!isEmpty()"})
     @Ensure("count() == {old count()}")
     G item();
 

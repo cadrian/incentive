@@ -99,4 +99,21 @@ public class TestHashedMap {
         assertEquals("five", map.at(5));
     }
 
+    /**
+     * Nominal case with collision and key removal
+     */
+    @Test
+    public void testRemoval() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        map.del(1);
+
+        assertEquals(2, map.count());
+        assertEquals("two", map.at(2));
+        assertEquals("five", map.at(5));
+    }
+
 }

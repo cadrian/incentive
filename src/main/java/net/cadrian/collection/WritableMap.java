@@ -20,7 +20,7 @@ public interface WritableMap<K, V> extends Map<K, V> {
     void put(K key, V value);
 
     /**
-     * Put the given valye at the given key. The key must not already
+     * Put the given value at the given key. The key must not already
      * be in the Map.
      *
      * @param key the key to add
@@ -31,5 +31,12 @@ public interface WritableMap<K, V> extends Map<K, V> {
             "has({arg 1})",
             "at({arg 1}) == {arg 2}"})
     void add(K key, V value);
+
+    /**
+     * Remove a key from the Map.
+     */
+    @Require("has({arg 1})")
+    @Ensure({"count() == {old count()} - 1", "!has({arg 1})"})
+    void del(K key);
 
 }

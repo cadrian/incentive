@@ -15,6 +15,13 @@ public interface Iterable<G> {
     public int count();
 
     /**
+     * @return a unique number that changes every time the Iterable is
+     * changed (data added or removed). An Iterator will work only
+     * until the generation changes.
+     */
+    public int generation();
+
+    /**
      * @return <code>true</code> if the stack is empty, <code>false</code>
      *         otherwise
      */
@@ -25,7 +32,8 @@ public interface Iterable<G> {
      * @return a new iterator on the objects in the collection
      */
     @Ensure({"{result} != null",
-            "(count() == 0) == ({result}.isEmpty())"})
+            "(count() == 0) == ({result}.isEmpty())",
+            "generation() == {result}.generation()"})
     public Iterator<G> iterator();
 
     /**

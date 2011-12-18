@@ -194,7 +194,7 @@ class ClassInstrumentor {
         final String code = src.toString();
         final CtMethod invariant = CtNewMethod.make(code, targetClass);
         invariant.setModifiers(Modifier.PRIVATE);
-        LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
+        LOG.debug("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
         targetClass.addMethod(invariant);
     }
 
