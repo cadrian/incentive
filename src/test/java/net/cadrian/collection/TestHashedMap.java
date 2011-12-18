@@ -160,4 +160,23 @@ public class TestHashedMap {
         iter.next();
     }
 
+    /**
+     * iterator.next on empty
+     */
+    @Test(expected = RequireError.class)
+    public void testIteratorNextEmpty() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        final Iterator<MapEntry<Integer, String>> iter = map.iterator();
+        iter.next();
+        iter.next();
+        iter.next();
+        assertEquals(0, iter.count());
+
+        iter.next();
+    }
+
 }
