@@ -37,10 +37,10 @@ public abstract class CodeGenerator implements
                                    Visitor {
 
     public static String invariant(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
-        return accept(new InvariantCodeGenerator(classInstrumentor), assertion);
+        return accept(new InvariantCodeGenerator(classInstrumentor, assertion), assertion);
     }
 
-    private static String accept(final CodeGenerator generator, final Assertion assertion) {
+    protected static String accept(final CodeGenerator generator, final Assertion assertion) {
         try {
             assertion.accept(generator);
             return generator.getCode();
@@ -50,14 +50,52 @@ public abstract class CodeGenerator implements
         }
     }
 
-    protected final StringBuilder code;
+    protected StringBuilder code;
 
     protected CodeGenerator() {
         this.code = new StringBuilder();
     }
 
+    protected void appendCode(final CodeGenerator generator, final Assertion assertion) {
+        final StringBuilder oldCode = code;
+        code = generator.code;
+        assertion.accept(generator);
+        oldCode.append(generator.getCode());
+        code = oldCode;
+    }
+
     protected String getCode() {
         return code.toString();
+    }
+
+    @Override
+    public void visitArg(final AssertionArg arg){
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void visitChunk(final AssertionChunk chunk){
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void visitExists(final AssertionExists exists){
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void visitForall(final AssertionForall forall){
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void visitOld(final AssertionOld old){
+        throw new RuntimeException();
+    }
+
+    @Override
+    public void visitResult(final AssertionResult result){
+        throw new RuntimeException();
     }
 
     @Override

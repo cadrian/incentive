@@ -2,9 +2,14 @@ package net.cadrian.collection;
 
 import net.cadrian.incentive.DBC;
 import net.cadrian.incentive.Ensure;
+import net.cadrian.incentive.Invariant;
 import net.cadrian.incentive.Require;
 
 @DBC
+// stupid invariant (because O(n^2)), but for tests
+@Invariant({"{forall(K k: keySet()) k != null}",
+        "{forall(K k: keySet()) {exists(V v: values()) at(k) == v}}"
+        })
 public interface Map<K, V> extends Iterable<MapEntry<K, V>> {
 
     /**

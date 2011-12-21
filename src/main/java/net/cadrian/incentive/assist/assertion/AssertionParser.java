@@ -71,12 +71,10 @@ class AssertionParser {
     private AssertionSequence lastAssertion;
 
     public Assertion parse() {
-        LOG.info(">>>> parsing: {" + new String(src) + "}");
         try {
-            final AssertionSequence result = new AssertionSequence();
+            final AssertionSequence result = new AssertionSequence(false);
             lastAssertion = result;
             parseAssertion();
-            LOG.info(">>>> parsed: {" + result + "}");
             return result;
         } catch (RuntimeException rx) {
             LOG.error(">>>> parsing failed", rx);
@@ -88,22 +86,75 @@ class AssertionParser {
         }
     }
 
-    private void parseAssertion() {
-        LOG.info("pos="+pos+" ("+src.length+")");
-        while (pos < src.length && src[pos] != '}') {
-            skipBlanks();
+    private boolean atEnd() {
+        final boolean result;
+        if (pos >= src.length) {
+            result = true;
+        }
+        else {
+            switch(src[pos]) {
+            case '}':
+            case ')':
+                result = true;
+                break;
+            default:
+                result = false;
+            }
+        }
+        return result;
+    }
 
+    private boolean atChunkBoundary() {
+        final boolean result;
+        if (pos >= src.length) {
+            result = true;
+        }
+        else {
+            switch(src[pos]) {
+            case '{':
+            case '}':
+            case '(':
+            case ')':
+                result = true;
+                break;
+            default:
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    private void parseAssertion() {
+        while (!atEnd()) {
             final StringBuilder buffer = new StringBuilder();
-            while (pos < src.length && src[pos] != '{' && src[pos] != '}') {
+            while (!atChunkBoundary()) {
                 buffer.append(src[pos++]);
             }
             if (buffer.length() > 0) {
                 lastAssertion.add(new AssertionChunk(buffer.toString()));
             }
-            if (pos < src.length && src[pos] == '{') {
-                parseOperator();
+            if (pos < src.length) {
+                switch(src[pos]) {
+                case '{':
+                    parseOperator();
+                    break;
+                case '(':
+                    parseParenthesized();
+                    break;
+                }
             }
         }
+    }
+
+    private void parseParenthesized() {
+        skip('(');
+        skipBlanks();
+        final AssertionSequence oldSequence = lastAssertion;
+        lastAssertion = new AssertionSequence(true);
+        parseAssertion();
+        oldSequence.add(lastAssertion);
+        lastAssertion = oldSequence;
+        skip(')');
     }
 
     private void parseOperator() {
@@ -138,7 +189,7 @@ class AssertionParser {
     private void parseNestedAssertion(final NestAssertion nester) {
         skipBlanks();
         final AssertionSequence oldSequence = lastAssertion;
-        lastAssertion = new AssertionSequence();
+        lastAssertion = new AssertionSequence(false);
         parseAssertion();
         oldSequence.add(nester.nest(lastAssertion));
         lastAssertion = oldSequence;
@@ -196,7 +247,7 @@ class AssertionParser {
 
         skipBlanks();
         final AssertionSequence oldSequence = lastAssertion;
-        lastAssertion = new AssertionSequence();
+        lastAssertion = new AssertionSequence(false);
         parseAssertion();
         final AssertionSequence value = lastAssertion;
         lastAssertion = oldSequence;

@@ -32,9 +32,11 @@ public class AssertionSequence implements Assertion {
     }
 
     private final List<Assertion> assertions;
+    public final boolean parenthesized;
 
-    AssertionSequence() {
+    AssertionSequence(final boolean parenthesized) {
         assertions = new ArrayList<Assertion>();
+        this.parenthesized = parenthesized;
     }
 
     void add(final Assertion assertion) {
@@ -48,8 +50,14 @@ public class AssertionSequence implements Assertion {
     @Override
     public String toString() {
         final StringBuilder result = new StringBuilder();
+        if (parenthesized) {
+            result.append('(');
+        }
         for (final Assertion assertion: assertions) {
             result.append(assertion);
+        }
+        if (parenthesized) {
+            result.append(')');
         }
         return result.toString();
     }

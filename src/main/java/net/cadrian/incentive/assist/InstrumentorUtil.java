@@ -232,7 +232,7 @@ final class InstrumentorUtil {
                     i++;
                 }
             }
-            LOG.info("**** Signature of " + a_targetClass.getName() + ": " + result);
+            LOG.debug("**** Signature of " + a_targetClass.getName() + ": " + result);
         }
 
         return result;

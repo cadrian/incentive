@@ -28,21 +28,181 @@ import net.cadrian.incentive.assist.assertion.AssertionResult;
 import net.cadrian.incentive.assist.assertion.AssertionSequence;
 import net.cadrian.incentive.assist.assertion.InvariantAssertion;
 import net.cadrian.incentive.assist.ClassInstrumentor;
-import net.cadrian.incentive.assist.Visitor;
 
 import javassist.CtClass;
 
 class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion.Visitor {
-    private final ClassInstrumentor classInstrumentor;
 
-    InvariantCodeGenerator(final ClassInstrumentor classInstrumentor) {
+    private static class Counter {
+        private int value;
+
+        public void next() {
+            value++;
+        }
+
+        public void set(final int value) {
+            this.value = value;
+        }
+
+        public int get() {
+            return value;
+        }
+
+        public String check() {
+            return "b" + value;
+        }
+
+        public String count() {
+            return "n" + value;
+        }
+
+        public String index() {
+            return "i" + value;
+        }
+    }
+
+    private static class IteratorPreparation extends CodeGenerator {
+        final InvariantCodeGenerator host;
+        boolean inIterator = false;
+        final Counter local;
+        boolean prepared;
+
+        IteratorPreparation(final InvariantCodeGenerator host, final Counter local) {
+            this.host = host;
+            this.local = local;
+        }
+
+        private void openLoop(final Assertion value, final boolean init) {
+            local.next();
+            code.append("boolean ")
+                .append(local.check())
+                .append(" = ")
+                .append(init ? "true" : "false")
+                .append(";\n")
+                .append("int ")
+                .append(local.count())
+                .append(" = (");
+            value.accept(this);
+            code.append(").count();\n");
+            code.append("for (int ")
+                .append(local.index())
+                .append(" = 0; ")
+                .append(local.index())
+                .append(" < ")
+                .append(local.count());
+            if (init) {
+                code.append(" || ");
+            }
+            else {
+                code.append(" && !");
+            }
+            code.append(local.check())
+                .append("; ")
+                .append(local.index())
+                .append("++) {\n");
+        }
+
+        @Override
+        public void visitExists(final AssertionExists exists){
+            if (!inIterator) {
+                inIterator = true;
+                openLoop(exists.value, false);
+                exists.assertion.accept(host);
+                code.append("}\n");
+                inIterator = false;
+                prepared = true;
+            }
+        }
+
+        @Override
+        public void visitForall(final AssertionForall forall){
+            if (!inIterator) {
+                inIterator = true;
+                openLoop(forall.value, true);
+                forall.assertion.accept(host);
+                code.append("}\n");
+                inIterator = false;
+                prepared = true;
+            }
+        }
+
+        @Override
+        public void visitChunk(final AssertionChunk chunk){
+            if (inIterator) {
+                chunk.accept(host);
+            }
+        }
+
+        @Override
+        public void visitSequence(final AssertionSequence sequence) {
+            if (inIterator && sequence.parenthesized) {
+                code.append('(');
+            }
+            super.visitSequence(sequence);
+            if (inIterator && sequence.parenthesized) {
+                code.append(')');
+            }
+        }
+
+        @Override
+        public void visitArg(final AssertionArg arg){
+            if (inIterator) {
+                arg.accept(host);
+            }
+        }
+
+        @Override
+        public void visitOld(final AssertionOld old){
+            if (inIterator) {
+                old.accept(host);
+            }
+        }
+
+        @Override
+        public void visitResult(final AssertionResult result){
+            if (inIterator) {
+                result.accept(host);
+            }
+        }
+    }
+
+    private final ClassInstrumentor classInstrumentor;
+    private final Assertion assertion;
+    private final Counter local;
+
+    InvariantCodeGenerator(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
         this.classInstrumentor = classInstrumentor;
-        code.append("{\ntry {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append("=true;\n");
+        this.assertion = assertion;
+        this.local = new Counter();
+        code.append("{\ntry {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append("=true;\nboolean b0 = true;\n");
+    }
+
+    private void check(final String localCheck) {
+        code.append("if (!(")
+            .append(localCheck)
+            .append(")) throw new ")
+            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append("(\"")
+            .append(classInstrumentor.getName())
+            .append(": ")
+            .append(assertion.toString().replace("\n", "\\n").replace("\"", "\\\""))
+            .append(" is broken\");\n");
     }
 
     @Override
     protected String getCode() {
-        code.append("} finally {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append("=false;\n}\n}");
+        code.append("} catch (")
+            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append(" x) {\nthrow x;\n} catch (Exception x) {\n")
+            .append("throw new ")
+            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append("(\"")
+            .append(classInstrumentor.getName())
+            .append(": ")
+            .append(assertion.toString().replace("\n", "\\n").replace("\"", "\\\""))
+            .append(", \" + x.getMessage(), x);\n} finally {\n")
+            .append(ClassInstrumentor.INVARIANT_FLAG_VAR)
+            .append("=false;\n}\n}");
         return super.getCode();
     }
 
@@ -51,12 +211,12 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
         for (final Map.Entry<CtClass, List<Assertion>> classContract: invariant.getContract().entrySet()) {
             code.append("/*").append(classContract.getKey().getName()).append("*/\n");
             for (final Assertion assertion: classContract.getValue()) {
+                final String localCheck = local.check();
                 assertion.accept(this);
+                check(localCheck);
             }
         }
     }
-
-    private boolean iteratorMode;
 
     @Override
     public void visitArg(final AssertionArg arg){
@@ -65,9 +225,7 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
 
     @Override
     public void visitChunk(final AssertionChunk chunk){
-        if (!iteratorMode) {
-            code.append(chunk.chunk);
-        }
+        code.append(chunk.chunk);
     }
 
     @Override
@@ -90,28 +248,25 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
 
     @Override
     public void visitSequence(final AssertionSequence sequence){
-        code.append("try {\n");
-        iteratorMode=true;
-        super.visitSequence(sequence);
-        iteratorMode=false;
-        code.append("if (!(");
-        super.visitSequence(sequence);
-        code.append(")) throw new ")
-            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
-            .append("(\"")
-            .append(classInstrumentor.getName())
-            .append(": {")
-            .append(sequence)
-            .append("} is broken\");\n");
-        code.append("} catch (Exception x) {\n")
-            .append("throw new ")
-            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
-            .append("(\"")
-            .append(classInstrumentor.getName())
-            .append(": {")
-            .append(sequence)
-            .append("}, \" + x.getMessage(), x);\n");
-        code.append("}\n");
+        if (sequence.parenthesized) {
+            code.append('(');
+            super.visitSequence(sequence);
+            code.append(')');
+        }
+        else {
+            final String localCheck = local.check();
+            final IteratorPreparation preparation = new IteratorPreparation(this, local);
+            appendCode(preparation, sequence);
+            code.append(localCheck)
+                .append(" |= ");
+            if (preparation.prepared) {
+                code.append(local.check());
+            }
+            else {
+                super.visitSequence(sequence);
+            }
+            code.append(";\n");
+        }
     }
 
 }

@@ -233,32 +233,7 @@ public class ClassInstrumentor {
             LOG.error(" *** CODE: {}", code, ccx);
             throw ccx;
         }
-        //        final StringBuilder src = new StringBuilder(String.format("private void %s() {try{%s=true;\n", INVARIANT_METHOD_NAME, INVARIANT_FLAG_VAR));
-        //        addInvariantCode(src);
-        //        src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
-        //        final String code = src.toString();
-        //        try {
-        //            final CtMethod invariant = CtNewMethod.make(code, targetClass);
-        //            invariant.setModifiers(Modifier.PRIVATE);
-        //            LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
-        //            targetClass.addMethod(invariant);
-        //        }
-        //        catch (CannotCompileException ccx) {
-        //            LOG.error(" *** CODE: {}", code, ccx);
-        //            throw ccx;
-        //        }
     }
-
-//    private void addInvariantCode(final StringBuilder src) throws ClassNotFoundException, CannotCompileException, CompileError {
-//        for (final ClassInstrumentor parent : parents) {
-//            parent.addInvariantCode(src);
-//        }
-//        final Invariant invariant = (Invariant) targetClass.getAnnotation(Invariant.class);
-//        if (invariant != null) {
-//            src.append(InstrumentorUtil.parseAssertions(invariant.value(), targetClass, pool, INVARIANT_ERROR_NAME, getName(), generics,
-//                                                        TransformCodecs.ITERATOR_CODEC("__incentive__inv__b", "b")));
-//        }
-//    }
 
     public String getName() {
         return targetClass.getName();

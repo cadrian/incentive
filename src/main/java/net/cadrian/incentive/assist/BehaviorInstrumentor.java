@@ -157,10 +157,10 @@ public abstract class BehaviorInstrumentor {
         // NOTE! insert() adds code at the very start of the bytecode block;
         // hence insert the precondition check before the invariant check
 //        insertMethodPreconditionCall();
-//        insertClassInvariantCall(true);
+        insertClassInvariantCall(true);
 //
 //        insertMethodPostconditionCall();
-//        insertClassInvariantCall(false);
+        insertClassInvariantCall(false);
     }
 
     public String getName() {
