@@ -21,17 +21,14 @@ import java.util.List;
 import java.util.Map;
 
 import net.cadrian.incentive.assist.Assertion;
-import net.cadrian.incentive.assist.BehaviorInstrumentor;
 
 import javassist.CtClass;
 
 abstract class ContractAssertion implements Assertion {
     private final Map<CtClass, List<Assertion>> contract;
-    private final BehaviorInstrumentor behavior;
 
-    public ContractAssertion(final BehaviorInstrumentor behavior) {
+    public ContractAssertion() {
         this.contract = new LinkedHashMap<CtClass, List<Assertion>>();
-        this.behavior = behavior;
     }
 
     public void add(final CtClass targetClass, final String assertion) {
@@ -44,9 +41,13 @@ abstract class ContractAssertion implements Assertion {
         classContract.add(parser.parse());
     }
 
+    public Map<CtClass, List<Assertion>> getContract() {
+        return contract;
+    }
+
     @Override
     public String toString() {
-        final StringBuilder result = new StringBuilder(behavior.getName()).append(": {\n");
+        final StringBuilder result = new StringBuilder("{\n");
         for (final Map.Entry<CtClass, List<Assertion>> classContract: contract.entrySet()) {
             result.append(" - ").append(classContract.getKey().getName()).append(" => [");
             for (final Assertion assertion: classContract.getValue()) {

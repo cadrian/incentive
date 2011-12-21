@@ -23,10 +23,9 @@ import java.util.Map;
 import net.cadrian.incentive.assist.Assertion;
 import net.cadrian.incentive.assist.BehaviorInstrumentor;
 
-import javassist.CtClass;
-
 
 public class RequireAssertion extends ContractAssertion {
+    private final BehaviorInstrumentor behavior;
 
     public static interface Visitor extends net.cadrian.incentive.assist.Visitor {
         void visitRequire(final RequireAssertion require);
@@ -37,7 +36,13 @@ public class RequireAssertion extends ContractAssertion {
     }
 
     public RequireAssertion(final BehaviorInstrumentor behavior) {
-        super(behavior);
+        super();
+        this.behavior = behavior;
+    }
+
+    @Override
+    public String toString() {
+        return behavior.getName() + ": " + super.toString();
     }
 
 }

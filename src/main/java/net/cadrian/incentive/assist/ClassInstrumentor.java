@@ -18,8 +18,10 @@ package net.cadrian.incentive.assist;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javassist.CannotCompileException;
 import javassist.ClassPool;
@@ -32,20 +34,23 @@ import javassist.CtNewMethod;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.compiler.CompileError;
-import net.cadrian.incentive.Invariant;
+
+import net.cadrian.incentive.assist.assertion.InvariantAssertion;
+import net.cadrian.incentive.assist.visitor.CodeGenerator;
 import net.cadrian.incentive.error.InvariantError;
+import net.cadrian.incentive.Invariant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class ClassInstrumentor {
+public class ClassInstrumentor {
     private static final Logger LOG = LoggerFactory.getLogger(ClassInstrumentor.class);
 
-    private static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
-    private static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
-    private static final String INVARIANT_METHOD_SIGNATURE = "()V";
-    private static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
-    private static final String INVARIANT_ERROR_NAME = InvariantError.class.getName();
+    public static final String INITIALIZED_FLAG_VAR = "__incentive_initialized__";
+    public static final String INVARIANT_FLAG_VAR = "__incentive_invariant__";
+    public static final String INVARIANT_METHOD_SIGNATURE = "()V";
+    public static final String INVARIANT_METHOD_NAME = "__incentive_inv__";
+    public static final String INVARIANT_ERROR_NAME = InvariantError.class.getName();
 
     private final CtClass targetClass;
     private final ClassPool pool;
@@ -56,6 +61,8 @@ class ClassInstrumentor {
 
     final Instrumentor instrumentor;
     final Map<String, String> generics;
+
+    private final InvariantAssertion invariantAssertion;
 
     public ClassInstrumentor(final CtClass targetClass, final ClassPool pool, final Instrumentor instrumentor) throws NotFoundException, ClassNotFoundException {
         this.instrumentor = instrumentor;
@@ -68,6 +75,8 @@ class ClassInstrumentor {
         for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
             parents.add(new ClassInstrumentor(parent, pool, instrumentor));
         }
+
+        invariantAssertion = new InvariantAssertion(this);
 
         generics = InstrumentorUtil.getGenericTypes(targetClass);
 
@@ -108,6 +117,7 @@ class ClassInstrumentor {
 
     void instrument() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
         if (targetClass.isFrozen()) {
+            // already instrumented or already loaded; out of scope
             return;
         }
 
@@ -129,6 +139,10 @@ class ClassInstrumentor {
 
         addPrivateFlag(INITIALIZED_FLAG_VAR);
         addPrivateFlag(INVARIANT_FLAG_VAR);
+        gatherInvariant(new HashSet<CtClass>(), invariantAssertion);
+
+        System.out.println("!!!!  invariant assertion: " + invariantAssertion);
+
         addInvariantMethod();
         for (final ConstructorInstrumentor constructor : constructors) {
             constructor.instrument();
@@ -190,22 +204,49 @@ class ClassInstrumentor {
         return true;
     }
 
+    private void gatherInvariant(final Set<CtClass> classes, final InvariantAssertion invariantAssertion) throws ClassNotFoundException, NotFoundException {
+        if (classes.contains(targetClass)) return;
+        classes.add(targetClass);
+
+        for (final ClassInstrumentor parent : getParents()) {
+            parent.gatherInvariant(classes, invariantAssertion);
+        }
+
+        final Invariant invariant = (Invariant) targetClass.getAnnotation(Invariant.class);
+        if (invariant != null) {
+            for (final String assertion: invariant.value()) {
+                invariantAssertion.add(targetClass, assertion);
+            }
+        }
+    }
+
     private void addInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
         LOG.info("Computing invariant of {}", targetClass.getName());
-//        final StringBuilder src = new StringBuilder(String.format("private void %s() {try{%s=true;\n", INVARIANT_METHOD_NAME, INVARIANT_FLAG_VAR));
-//        addInvariantCode(src);
-//        src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
-//        final String code = src.toString();
-//        try {
-//            final CtMethod invariant = CtNewMethod.make(code, targetClass);
-//            invariant.setModifiers(Modifier.PRIVATE);
-//            LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
-//            targetClass.addMethod(invariant);
-//        }
-//        catch (CannotCompileException ccx) {
-//            LOG.error(" *** CODE: {}", code, ccx);
-//            throw ccx;
-//        }
+        final String code = CodeGenerator.invariant(this, invariantAssertion);
+        try {
+            final CtMethod invariant = CtNewMethod.make(CtClass.voidType, INVARIANT_METHOD_NAME, new CtClass[0], new CtClass[0], code, targetClass);
+            invariant.setModifiers(Modifier.PRIVATE);
+            LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
+            targetClass.addMethod(invariant);
+        }
+        catch (CannotCompileException ccx) {
+            LOG.error(" *** CODE: {}", code, ccx);
+            throw ccx;
+        }
+        //        final StringBuilder src = new StringBuilder(String.format("private void %s() {try{%s=true;\n", INVARIANT_METHOD_NAME, INVARIANT_FLAG_VAR));
+        //        addInvariantCode(src);
+        //        src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
+        //        final String code = src.toString();
+        //        try {
+        //            final CtMethod invariant = CtNewMethod.make(code, targetClass);
+        //            invariant.setModifiers(Modifier.PRIVATE);
+        //            LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
+        //            targetClass.addMethod(invariant);
+        //        }
+        //        catch (CannotCompileException ccx) {
+        //            LOG.error(" *** CODE: {}", code, ccx);
+        //            throw ccx;
+        //        }
     }
 
 //    private void addInvariantCode(final StringBuilder src) throws ClassNotFoundException, CannotCompileException, CompileError {

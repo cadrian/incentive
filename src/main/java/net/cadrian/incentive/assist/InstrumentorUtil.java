@@ -51,8 +51,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 final class InstrumentorUtil {
-    private static final Logger LOG = LoggerFactory
-        .getLogger(InstrumentorUtil.class);
+    private static final Logger LOG = LoggerFactory.getLogger(InstrumentorUtil.class);
 
     private InstrumentorUtil() {
         // no instances

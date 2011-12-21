@@ -19,28 +19,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.cadrian.incentive.assist.Assertion;
-import net.cadrian.incentive.assist.BehaviorInstrumentor;
+import net.cadrian.incentive.assist.ClassInstrumentor;
 
 
-public class EnsureAssertion extends ContractAssertion {
-    private final BehaviorInstrumentor behavior;
+public class InvariantAssertion extends ContractAssertion {
+    private final ClassInstrumentor classInstrumentor;
 
     public static interface Visitor extends net.cadrian.incentive.assist.Visitor {
-        void visitEnsure(final EnsureAssertion ensure);
+        void visitInvariant(final InvariantAssertion invariant);
     }
 
     public void accept(final net.cadrian.incentive.assist.Visitor v) {
-        ((Visitor)v).visitEnsure(this);
+        ((Visitor)v).visitInvariant(this);
     }
 
-    public EnsureAssertion(final BehaviorInstrumentor behavior) {
+    public InvariantAssertion(final ClassInstrumentor classInstrumentor) {
         super();
-        this.behavior = behavior;
-    }
-
-    @Override
-    public String toString() {
-        return behavior.getName() + ": " + super.toString();
+        this.classInstrumentor = classInstrumentor;
     }
 
 }

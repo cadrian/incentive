@@ -41,6 +41,10 @@ public class AssertionSequence implements Assertion {
         assertions.add(assertion);
     }
 
+    public List<Assertion> getAssertions() {
+        return assertions;
+    }
+
     @Override
     public String toString() {
         final StringBuilder result = new StringBuilder();
