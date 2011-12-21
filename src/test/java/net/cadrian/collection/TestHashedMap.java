@@ -2,6 +2,7 @@ package net.cadrian.collection;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 import net.cadrian.incentive.error.RequireError;
@@ -177,6 +178,34 @@ public class TestHashedMap {
         assertEquals(0, iter.count());
 
         iter.next();
+    }
+
+    @Test
+    public void testKeySet() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        final Set<Integer> keys = map.keySet();
+        assertEquals(3, keys.count());
+        assertTrue(keys.has(1));
+        assertTrue(keys.has(2));
+        assertTrue(keys.has(5));
+    }
+
+    @Test
+    public void testValues() {
+        final HashedMap<Integer, String> map = new HashedMap<Integer, String>();
+        map.add(1, "one");
+        map.add(2, "two");
+        map.add(5, "five");
+
+        final Collection<String> values = map.values();
+        assertEquals(3, values.count());
+        assertTrue(values.has("one"));
+        assertTrue(values.has("two"));
+        assertTrue(values.has("five"));
     }
 
 }

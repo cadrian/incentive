@@ -16,6 +16,15 @@ import net.cadrian.incentive.Require;
 public interface Collection<G> extends Iterable<G> {
 
     /**
+     * @param the element to look at
+     *
+     * @return <code>true</code> if the element is in the Collection,
+     * <code>false</code> otherwise
+     */
+    @Ensure("(count() > 0) || !{result}")
+    boolean has(G element);
+
+    /**
      * @param index the index of the element to return
      * @return the index-th element in the collection
      */

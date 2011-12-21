@@ -26,14 +26,28 @@ public class RingArray<G> extends AbstractCollection<G> {
      */
     @Ensure("count() == 0")
     public RingArray() {
-        @SuppressWarnings("unchecked")
-        final G[] newArray = (G[]) new Object[4];
-        items = newArray;
+        this(4);
+    }
+
+    @Ensure("count() == 0")
+    @SuppressWarnings("unchecked")
+    RingArray(final int capacity) {
+        items = (G[]) new Object[capacity];
     }
 
     @Override
     public int count() {
         return count;
+    }
+
+    @Override
+    public boolean has(final G element) {
+        boolean result = false;
+        for (int i = 0; !result && i < count(); i++) {
+            final G elt = item(i);
+            result = elt == element || (elt != null && elt.equals(element));
+        }
+        return result;
     }
 
     @Override

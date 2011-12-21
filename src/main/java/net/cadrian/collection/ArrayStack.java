@@ -59,6 +59,11 @@ public class ArrayStack<G> extends AbstractCollection<G> implements Stack<G> {
     }
 
     @Override
+    public boolean has(final G element) {
+        return items.has(element);
+    }
+
+    @Override
     public G[] toArray(final G[] array) {
         final G[] result = items.toArray(array);
         final int len = count();

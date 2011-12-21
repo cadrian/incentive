@@ -15,6 +15,8 @@
  */
 package net.cadrian.incentive.assist;
 
+import java.util.Map;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,14 +48,16 @@ final class TransformCodecs {
     static final Pattern RESULT_REGEXP = Pattern.compile("\\{result\\}");
     static final Pattern OLD_REGEXP = Pattern.compile("\\{old\\s+([^}]+)\\}");
     static final Pattern ARG_REGEXP = Pattern.compile("\\{arg\\s+([1-9][0-9]*)\\}");
+    static final Pattern FORALL_REGEXP = Pattern.compile("\\{forall\\s*\\(([^}]+?)\\s+([^}]+?)\\s*:\\s*([^}]+?)\\)\\s*([^}]*)\\}");
+    static final Pattern EXISTS_REGEXP = Pattern.compile("\\{exists\\s*\\(([^}]+?)\\s+([^}]+?)\\s*:\\s*([^}]+?)\\)\\s*([^}]*)\\}");
 
     // The {result} -- in postconditions only
     static final TransformCodec POSTCONDITION_RESULT_CODEC = new TransformCodec() {
-        @Override
-        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool) {
-            return RESULT_REGEXP.matcher(assertion).replaceAll("\\$2");
-        }
-    };
+            @Override
+            public String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+                return RESULT_REGEXP.matcher(assertion).replaceAll("\\$2");
+            }
+        };
 
     private static SymbolTable gatherParamSymbols(final ClassPool pool, final CtClass targetClass, final CtBehavior behavior) throws NotFoundException, CompileError {
         final SymbolTable result = new SymbolTable();
@@ -79,7 +83,7 @@ final class TransformCodecs {
 
         @SuppressWarnings("boxing")
         @Override
-        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool)
+        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics)
             throws CannotCompileException, CompileError {
             final StringBuffer result = new StringBuffer(String.format("/*OldClassTransformCodec:%d*/", index));
             boolean found = false;
@@ -113,7 +117,7 @@ final class TransformCodecs {
 
         @SuppressWarnings("boxing")
         @Override
-        public final String decode(final String assertion, final CtClass targetClass, final ClassPool pool) {
+        public final String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
             final StringBuffer result = new StringBuffer(String.format("/*OldValuesTransformCodec:%d*/", index));
             boolean found = false;
             final Matcher matcher = OLD_REGEXP.matcher(assertion);
@@ -141,7 +145,7 @@ final class TransformCodecs {
 
         @SuppressWarnings("boxing")
         @Override
-        public final String decode(final String assertion, final CtClass targetClass, final ClassPool pool) {
+        public final String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
             final StringBuffer result = new StringBuffer(String.format("/*PostconditionOldValuesTransformCodec:%d*/", index));
             final Matcher matcher = OLD_REGEXP.matcher(assertion);
             while (matcher.find()) {
@@ -159,35 +163,35 @@ final class TransformCodecs {
     }
 
     static final TransformCodec PRECONDITION_ARGUMENTS_CODEC = new TransformCodec() {
-        @SuppressWarnings("boxing")
-        @Override
-        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool) {
-            final StringBuffer result = new StringBuffer();
-            final Matcher matcher = ARG_REGEXP.matcher(assertion);
-            while (matcher.find()) {
-                final int index = Integer.parseInt(matcher.group(1));
-                matcher.appendReplacement(result, String.format("\\$%d", index));
+            @SuppressWarnings("boxing")
+            @Override
+            public String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+                final StringBuffer result = new StringBuffer();
+                final Matcher matcher = ARG_REGEXP.matcher(assertion);
+                while (matcher.find()) {
+                    final int index = Integer.parseInt(matcher.group(1));
+                    matcher.appendReplacement(result, String.format("\\$%d", index));
+                }
+                matcher.appendTail(result);
+                return result.toString();
             }
-            matcher.appendTail(result);
-            return result.toString();
-        }
-    };
+        };
 
     static final TransformCodec POSTCONDITION_ARGUMENTS_CODEC = new TransformCodec() {
-        @SuppressWarnings("boxing")
-        @Override
-        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool) {
-            final StringBuffer result = new StringBuffer();
-            final Matcher matcher = ARG_REGEXP.matcher(assertion);
-            while (matcher.find()) {
-                final int index = Integer.parseInt(matcher.group(1));
-                // the first two indexes are the "old" array and the result
-                matcher.appendReplacement(result, String.format("\\$%d", index + 2));
+            @SuppressWarnings("boxing")
+            @Override
+            public String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+                final StringBuffer result = new StringBuffer();
+                final Matcher matcher = ARG_REGEXP.matcher(assertion);
+                while (matcher.find()) {
+                    final int index = Integer.parseInt(matcher.group(1));
+                    // the first two indexes are the "old" array and the result
+                    matcher.appendReplacement(result, String.format("\\$%d", index + 2));
+                }
+                matcher.appendTail(result);
+                return result.toString();
             }
-            matcher.appendTail(result);
-            return result.toString();
-        }
-    };
+        };
 
     static CtClass expressionType(final String src, final CtClass targetClass, final ClassPool pool, final SymbolTable behaviorSymbolTable)
         throws CompileError {
@@ -195,6 +199,80 @@ final class TransformCodecs {
         final SymbolTable stb = new SymbolTable(behaviorSymbolTable);
         final ASTree tree = parser.parseExpression(stb);
         return new StmtTypeVisitor(targetClass, pool).getType(tree);
+    }
+
+    private static class IteratorTransformCodec implements TransformCodec {
+        private int counter;
+        private final String localTag;
+        private final String assignee;
+
+        IteratorTransformCodec(final String a_localTag, final String a_assignee) {
+            this.localTag = a_localTag;
+            this.assignee = a_assignee;
+        }
+
+        private boolean decodeIterator(final StringBuffer buffer, final String assertion, final boolean initBoolean, final String breakTestFormat, final Pattern pattern,
+                                       final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+            boolean result = false;
+            final String tag   = localTag + counter;
+            final String index = localTag + counter + "_index";
+            final String count = localTag + counter + "_count";
+
+            final Matcher matcher = pattern.matcher(assertion);
+            while (matcher.find()) {
+                result = true;
+                counter++;
+                buffer.append("final int ").append(count).append("=(").append(matcher.group(3)).append(").count();\n");
+                buffer.append("boolean ").append(tag).append('=').append(initBoolean).append(";\n");
+                buffer.append("for (int ").append(index).append(" = 0; ").append(index).append(" < ").append(count).append("; ").append(index).append("++) {\n");
+
+                String type = matcher.group(1);
+                if (generics != null) {
+                    final String generic = generics.get(type);
+                    if (generic != null) {
+                        type = generic;
+                    }
+                }
+
+                buffer.append("final ").append(type).append(' ').append(matcher.group(2)).append(" = (").append(matcher.group(3)).append(").item(").append(index).append(");\n");
+                buffer.append(tag).append("=(").append(matcher.group(4)).append(");\n");
+                buffer.append("if(").append(String.format(breakTestFormat, tag)).append(")break;\n}\n");
+            }
+
+            buffer.append(assignee).append("=").append(tag).append(';');
+            return result;
+        }
+
+        private boolean decodeForall(final StringBuffer buffer, final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+            return decodeIterator(buffer, assertion,
+                                  true, "!(%s)", FORALL_REGEXP,
+                                  targetClass, pool, generics);
+        }
+
+        private boolean decodeExists(final StringBuffer buffer, final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+            return decodeIterator(buffer, assertion,
+                                  false, "(%s)", EXISTS_REGEXP,
+                                  targetClass, pool, generics);
+        }
+
+        @SuppressWarnings("boxing")
+        @Override
+        public String decode(final String assertion, final CtClass targetClass, final ClassPool pool, final Map<String, String> generics) {
+            final StringBuffer buffer = new StringBuffer(assertion);
+            String result = null;
+            do {
+                result = buffer.toString();
+                buffer.setLength(0);
+            } while (decodeForall(buffer, result, targetClass, pool, generics) || decodeExists(buffer, result, targetClass, pool, generics));
+            if (counter == 0) {
+                return assignee + "=(" + result + ");";
+            }
+            return result;
+        }
+    }
+
+    static final TransformCodec ITERATOR_CODEC(final String a_localTag, final String a_assignee) {
+        return new IteratorTransformCodec(a_localTag, a_assignee);
     }
 
 }

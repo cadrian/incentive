@@ -24,7 +24,7 @@ public class HashedSet<G> extends AbstractCollection<G> implements WritableSet<G
         }
     }
 
-    private G[] elements;
+    G[] elements;
     private boolean[] used;
     private int count;
 
@@ -32,9 +32,14 @@ public class HashedSet<G> extends AbstractCollection<G> implements WritableSet<G
 
     @Ensure("count() == 0")
     public HashedSet() {
+        this(4);
+    }
+
+    @Ensure("count() == 0")
+    HashedSet(final int capacity) {
         @SuppressWarnings("unchecked")
-        final G[] newElements = (G[])new Object[4];
-        final boolean[] newUsed = new boolean[4];
+        final G[] newElements = (G[])new Object[capacity];
+        final boolean[] newUsed = new boolean[capacity];
 
         elements = newElements;
         used = newUsed;

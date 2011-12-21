@@ -146,7 +146,7 @@ abstract class BehaviorInstrumentor {
     }
 
     private void definePreconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
-        LOG.debug("Computing precondition of {}", behavior.getLongName());
+        LOG.info("Computing precondition of {}", behavior.getLongName());
         final StringBuilder src = new StringBuilder(String.format("{\n%s err=null;\n", RequireError.class.getName()));
         fillPreconditionClass();
         src.append(String.format("final %s result = new %s();\n/*precondition old*/\n", oldClassName, oldClassName));
@@ -159,7 +159,7 @@ abstract class BehaviorInstrumentor {
         try {
             precondition = CtNewMethod.make(oldValuesClass, getPreconditionName(), behavior.getParameterTypes(), new CtClass[0], code, targetClass);
             precondition.setModifiers(Modifier.PRIVATE);
-            LOG.debug("Precondition of {} is {}{}", new Object[] { behavior.getLongName(), precondition, code });
+            LOG.info("Precondition of {} is {}{}", new Object[] { behavior.getLongName(), precondition, code });
         }
         catch (CannotCompileException ccx) {
             LOG.error(" *** CODE: {}", code, ccx);
@@ -193,7 +193,7 @@ abstract class BehaviorInstrumentor {
         if (ensure != null) {
             for (final String assertion : ensure.value()) {
                 result = TransformCodecs.PRECONDITION_OLD_CLASS_CODEC(pool, targetClass, behavior, a_preconditionClass, result);
-                InstrumentorUtil.transform(assertion, targetClass, pool,
+                InstrumentorUtil.transform(assertion, targetClass, pool, classInstrumentor.generics,
                                            TransformCodecs.PRECONDITION_ARGUMENTS_CODEC, result);
             }
         }
@@ -219,7 +219,7 @@ abstract class BehaviorInstrumentor {
         if (ensure != null) {
             for (final String assertion : ensure.value()) {
                 result = TransformCodecs.PRECONDITION_OLD_VALUES_CODEC(result);
-                final String transformed = InstrumentorUtil.transform(assertion, targetClass, pool,
+                final String transformed = InstrumentorUtil.transform(assertion, targetClass, pool, classInstrumentor.generics,
                                                                       TransformCodecs.PRECONDITION_ARGUMENTS_CODEC, result);
                 if (transformed != null) {
                     src.append(transformed);
@@ -239,8 +239,9 @@ abstract class BehaviorInstrumentor {
 
         final Require require = (Require) getPrecursor().getAnnotation(Require.class);
         if (require != null) {
-            src.append(InstrumentorUtil.parseAssertions(require.value(), targetClass, pool, PRECONDITION_ERROR_NAME, getName(),
-                                                        TransformCodecs.PRECONDITION_ARGUMENTS_CODEC));
+            src.append(InstrumentorUtil.parseAssertions(require.value(), targetClass, pool, PRECONDITION_ERROR_NAME, getName(), classInstrumentor.generics,
+                                                        TransformCodecs.PRECONDITION_ARGUMENTS_CODEC,
+                                                        TransformCodecs.ITERATOR_CODEC("__incentive__req__b", "b")));
             result = true;
         }
 
@@ -273,7 +274,7 @@ abstract class BehaviorInstrumentor {
     }
 
     private void definePostconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError {
-        LOG.debug("Computing postcondition of {}", behavior.getLongName());
+        LOG.info("Computing postcondition of {}", behavior.getLongName());
         final StringBuilder src = new StringBuilder("{\n/*postcondition code*/\n");
         addPostconditionCode(new HashSet<CtClass>(), src, null);
         src.append('}');
@@ -295,7 +296,7 @@ abstract class BehaviorInstrumentor {
         try {
             postcondition = CtNewMethod.make(CtClass.voidType, getPostconditionName(), params, new CtClass[0], code, targetClass);
             postcondition.setModifiers(Modifier.PRIVATE);
-            LOG.debug("Postcondition of {} is {}{}", new Object[] { behavior.getLongName(), postcondition, code });
+            LOG.info("Postcondition of {} is {}{}", new Object[] { behavior.getLongName(), postcondition, code });
         }
         catch (CannotCompileException ccx) {
             LOG.error(" *** CODE: {}", code, ccx);
@@ -320,8 +321,11 @@ abstract class BehaviorInstrumentor {
         final Ensure ensure = (Ensure) getPrecursor().getAnnotation(Ensure.class);
         if (ensure != null) {
             result = TransformCodecs.POSTCONDITION_OLD_VALUES_CODEC(result);
-            src.append(InstrumentorUtil.parseAssertions(ensure.value(), targetClass, pool, POSTCONDITION_ERROR_NAME, getName(),
-                                                        TransformCodecs.POSTCONDITION_RESULT_CODEC, TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC, result));
+            src.append(InstrumentorUtil.parseAssertions(ensure.value(), targetClass, pool, POSTCONDITION_ERROR_NAME, getName(), classInstrumentor.generics,
+                                                        TransformCodecs.POSTCONDITION_RESULT_CODEC,
+                                                        TransformCodecs.POSTCONDITION_ARGUMENTS_CODEC,
+                                                        result,
+                                                        TransformCodecs.ITERATOR_CODEC("__incentive__ens__b", "b")));
         }
 
         return result;

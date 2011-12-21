@@ -6,14 +6,18 @@ import net.cadrian.incentive.Invariant;
 
 @DBC
 @Invariant("set != null")
-public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implements WritableMap<K, V> {
+public class HashedMap<K, V> extends AbstractMap<K, V> implements WritableMap<K, V> {
 
     private final HashedSet<MapEntry<K, V>> set;
 
     @Ensure("count() == 0")
     public HashedMap() {
-        super();
-        set = new HashedSet<MapEntry<K, V>>();
+        this(4);
+    }
+
+    @Ensure("count() == 0")
+    HashedMap(final int capacity) {
+        set = new HashedSet<MapEntry<K, V>>(capacity);
     }
 
     @Override
@@ -82,5 +86,32 @@ public class HashedMap<K, V> extends AbstractCollection<MapEntry<K, V>> implemen
     public MapEntry<K, V>[] toArray(final MapEntry<K, V>[] array) {
         return set.toArray(array);
     }
+
+    @Override
+    public Set<K> keySet() {
+        final int n = set.elements.length;
+        final HashedSet<K> result = new HashedSet<K>(n);
+        for (int i = 0; i < n; i++) {
+            final MapEntry<K, V> element = set.elements[i];
+            if (element != null) {
+                result.add(element.key);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public Collection<V> values() {
+        final int n = set.elements.length;
+        final RingArray<V> result = new RingArray<V>(set.count());
+        for (int i = 0; i < n; i++) {
+            final MapEntry<K, V> element = set.elements[i];
+            if (element != null) {
+                result.addLast(element.value);
+            }
+        }
+        return result;
+    }
+
 
 }

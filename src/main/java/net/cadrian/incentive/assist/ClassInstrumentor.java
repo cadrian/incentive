@@ -55,6 +55,7 @@ class ClassInstrumentor {
     private final Map<String, BehaviorInstrumentor> behaviors;
 
     final Instrumentor instrumentor;
+    final Map<String, String> generics;
 
     public ClassInstrumentor(final CtClass targetClass, final ClassPool pool, final Instrumentor instrumentor) throws NotFoundException {
         this.instrumentor = instrumentor;
@@ -67,6 +68,8 @@ class ClassInstrumentor {
         for (final CtClass parent : InstrumentorUtil.getParents(targetClass)) {
             parents.add(new ClassInstrumentor(parent, pool, instrumentor));
         }
+
+        generics = InstrumentorUtil.getGenericTypes(targetClass);
 
         behaviors = new HashMap<String, BehaviorInstrumentor>();
 
@@ -188,14 +191,21 @@ class ClassInstrumentor {
     }
 
     private void addInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
+        LOG.info("Computing invariant of {}", targetClass.getName());
         final StringBuilder src = new StringBuilder(String.format("private void %s() {try{%s=true;\n", INVARIANT_METHOD_NAME, INVARIANT_FLAG_VAR));
         addInvariantCode(src);
         src.append(String.format("}finally{%s=false;}}", INVARIANT_FLAG_VAR));
         final String code = src.toString();
-        final CtMethod invariant = CtNewMethod.make(code, targetClass);
-        invariant.setModifiers(Modifier.PRIVATE);
-        LOG.debug("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
-        targetClass.addMethod(invariant);
+        try {
+            final CtMethod invariant = CtNewMethod.make(code, targetClass);
+            invariant.setModifiers(Modifier.PRIVATE);
+            LOG.info("Invariant of {} is {}{}", new Object[]{targetClass.getName(), invariant, code});
+            targetClass.addMethod(invariant);
+        }
+        catch (CannotCompileException ccx) {
+            LOG.error(" *** CODE: {}", code, ccx);
+            throw ccx;
+        }
     }
 
     private void addInvariantCode(final StringBuilder src) throws ClassNotFoundException, CannotCompileException, CompileError {
@@ -204,7 +214,8 @@ class ClassInstrumentor {
         }
         final Invariant invariant = (Invariant) targetClass.getAnnotation(Invariant.class);
         if (invariant != null) {
-            src.append(InstrumentorUtil.parseAssertions(invariant.value(), targetClass, pool, INVARIANT_ERROR_NAME, getName()));
+            src.append(InstrumentorUtil.parseAssertions(invariant.value(), targetClass, pool, INVARIANT_ERROR_NAME, getName(), generics,
+                                                        TransformCodecs.ITERATOR_CODEC("__incentive__inv__b", "b")));
         }
     }
 

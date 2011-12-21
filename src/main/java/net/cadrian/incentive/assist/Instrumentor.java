@@ -62,9 +62,9 @@ public final class Instrumentor implements ClassFileTransformer {
      * @param ins
      */
     public static void premain(final String options, final Instrumentation ins) {
-        LOG.debug("Starting Incentive...");
+        LOG.info("Starting Incentive...");
         ins.addTransformer(new Instrumentor(options));
-        LOG.debug("Incentive started.");
+        LOG.info("Incentive started.");
     }
 
     private Instrumentor(final String options) {

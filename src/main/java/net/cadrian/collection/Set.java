@@ -10,15 +10,6 @@ public interface Set<G> extends Collection<G> {
     /**
      * @param the element to look at
      *
-     * @return <code>true</code> if the element is in the Map,
-     * <code>false</code> otherwise
-     */
-    @Ensure("(count() > 0) || !{result}")
-    boolean has(G element);
-
-    /**
-     * @param the element to look at
-     *
      * @return the element in the set
      */
     @Require({"{arg 1} != null",
