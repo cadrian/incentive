@@ -23,11 +23,16 @@ public class AssertionResult implements Assertion {
         void visitResult(final AssertionResult result);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitResult(this);
     }
 
     AssertionResult() {
+    }
+
+    @Override
+    public String toString() {
+        return "{result}";
     }
 
 }

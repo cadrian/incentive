@@ -23,7 +23,7 @@ public class AssertionForall implements Assertion {
         void visitForall(final AssertionForall forall);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitForall(this);
     }
 
@@ -37,6 +37,11 @@ public class AssertionForall implements Assertion {
         this.var = var;
         this.value = value;
         this.assertion = assertion;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("{forall(%s %s: %s) %s}", type, var, value, assertion);
     }
 
 }

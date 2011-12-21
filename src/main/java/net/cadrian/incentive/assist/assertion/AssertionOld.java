@@ -23,7 +23,7 @@ public class AssertionOld implements Assertion {
         void visitOld(final AssertionOld old);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitOld(this);
     }
 
@@ -31,6 +31,11 @@ public class AssertionOld implements Assertion {
 
     AssertionOld(final AssertionSequence nested) {
         this.old = nested;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("{old %s}", old);
     }
 
 }

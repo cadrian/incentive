@@ -23,7 +23,7 @@ public class AssertionExists implements Assertion {
         void visitExists(final AssertionExists exists);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitExists(this);
     }
 
@@ -37,6 +37,11 @@ public class AssertionExists implements Assertion {
         this.var = var;
         this.value = value;
         this.assertion = assertion;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("{exists(%s %s: %s) %s}", type, var, value, assertion);
     }
 
 }

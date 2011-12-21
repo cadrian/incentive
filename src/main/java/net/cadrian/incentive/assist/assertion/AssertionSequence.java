@@ -15,7 +15,11 @@
  */
 package net.cadrian.incentive.assist.assertion;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.cadrian.incentive.assist.Assertion;
+
 
 public class AssertionSequence implements Assertion {
 
@@ -23,14 +27,27 @@ public class AssertionSequence implements Assertion {
         void visitSequence(final AssertionSequence sequence);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitSequence(this);
     }
 
+    private final List<Assertion> assertions;
+
     AssertionSequence() {
+        assertions = new ArrayList<Assertion>();
     }
 
     void add(final Assertion assertion) {
+        assertions.add(assertion);
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder result = new StringBuilder();
+        for (final Assertion assertion: assertions) {
+            result.append(assertion);
+        }
+        return result.toString();
     }
 
 }

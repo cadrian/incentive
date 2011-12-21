@@ -23,11 +23,19 @@ public class AssertionChunk implements Assertion {
         void visitChunk(final AssertionChunk chunk);
     }
 
-    public void accept(net.cadrian.incentive.assist.Visitor v) {
+    public void accept(final net.cadrian.incentive.assist.Visitor v) {
         ((Visitor)v).visitChunk(this);
     }
 
+    public final String chunk;
+
     AssertionChunk(final String chunk) {
+        this.chunk = chunk;
+    }
+
+    @Override
+    public String toString() {
+        return chunk;
     }
 
 }
