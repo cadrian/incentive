@@ -17,11 +17,15 @@ package net.cadrian.incentive.assist.assertion;
 
 import net.cadrian.incentive.assist.Assertion;
 
-public class AssertionParser {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class AssertionParser {
+    private static final Logger LOG = LoggerFactory.getLogger(AssertionParser.class);
 
     public static class SyntaxException extends RuntimeException {
-        SyntaxException(final String src, final int pos) {
-            super("{" + src + "} at " + pos);
+        SyntaxException(final String src, final String message, final int pos) {
+            super("{" + src + "}" + (message == null ? "" : ": " + message) + " at " + pos);
         }
     }
 
@@ -30,6 +34,11 @@ public class AssertionParser {
             @Override
             void parse(final AssertionParser parser) {
                 parser.parseResult();
+            }
+        }, arg {
+            @Override
+            void parse(final AssertionParser parser) {
+                parser.parseArg();
             }
         }, old {
             @Override
@@ -62,24 +71,38 @@ public class AssertionParser {
     private AssertionSequence lastAssertion;
 
     public Assertion parse() {
-        parseAssertion();
-        return lastAssertion;
+        LOG.info(">>>> parsing: {" + new String(src) + "}");
+        try {
+            final AssertionSequence result = new AssertionSequence();
+            lastAssertion = result;
+            parseAssertion();
+            LOG.info(">>>> parsed: {" + result + "}");
+            return result;
+        } catch (RuntimeException rx) {
+            LOG.error(">>>> parsing failed", rx);
+            throw rx;
+        } catch (Error e) {
+            LOG.error(">>>> parsing failed", e);
+            System.exit(1);
+            return null; // never reached
+        }
     }
 
     private void parseAssertion() {
-        skipBlanks();
-        final StringBuilder buffer = new StringBuilder();
-        while (pos < src.length && src[pos] != '{') {
-            buffer.append(src[pos]);
-        }
-        if (buffer.length() > 0) {
-            lastAssertion.add(new AssertionChunk(buffer.toString()));
-        }
-        if (pos < src.length && src[pos] == '{') {
-            parseOperator();
-        }
-        if (pos < src.length) {
-            parseAssertion();
+        LOG.info("pos="+pos+" ("+src.length+")");
+        while (pos < src.length && src[pos] != '}') {
+            skipBlanks();
+
+            final StringBuilder buffer = new StringBuilder();
+            while (pos < src.length && src[pos] != '{' && src[pos] != '}') {
+                buffer.append(src[pos++]);
+            }
+            if (buffer.length() > 0) {
+                lastAssertion.add(new AssertionChunk(buffer.toString()));
+            }
+            if (pos < src.length && src[pos] == '{') {
+                parseOperator();
+            }
         }
     }
 
@@ -88,11 +111,11 @@ public class AssertionParser {
         skipBlanks();
         final String operator = parseWord();
         if (operator == null) {
-            throw new SyntaxException(new String(src), pos);
+            throw new SyntaxException(new String(src), "expected operator", pos);
         }
         final Keyword k = Keyword.valueOf(operator);
         if (k == null) {
-            throw new SyntaxException(new String(src), pos);
+            throw new SyntaxException(new String(src), "unrecognized operator '" + operator + "'", pos);
         }
         k.parse(this);
         skip('}');
@@ -100,6 +123,12 @@ public class AssertionParser {
 
     private void parseResult() {
         lastAssertion.add(new AssertionResult());
+    }
+
+    private void parseArg() {
+        skipBlanks();
+        final int arg = parseNumber();
+        lastAssertion.add(new AssertionArg(arg));
     }
 
     private static interface NestAssertion {
@@ -154,13 +183,13 @@ public class AssertionParser {
         skipBlanks();
         final String type = parseType();
         if (type == null) {
-            throw new SyntaxException(new String(src), pos);
+            throw new SyntaxException(new String(src), "expected type", pos);
         }
 
         skipBlanks();
         final String var = parseWord();
         if (var == null) {
-            throw new SyntaxException(new String(src), pos);
+            throw new SyntaxException(new String(src), "expected variable", pos);
         }
 
         skip(':');
@@ -213,8 +242,19 @@ public class AssertionParser {
         return new String(src, pos0, pos-pos0);
     }
 
+    private int parseNumber() {
+        final int pos0 = pos;
+        while (pos < src.length && Character.isDigit(src[pos])) {
+            pos++;
+        }
+        if (pos == pos0) {
+            throw new SyntaxException(new String(src), "expected number", pos);
+        }
+        return Integer.valueOf(new String(src, pos0, pos-pos0));
+    }
+
     private String parseType() {
-        StringBuilder result = new StringBuilder();
+        final StringBuilder result = new StringBuilder();
         boolean done = false;
         while (!done) {
             final String word = parseWord();
@@ -247,8 +287,9 @@ public class AssertionParser {
     private void skip(final char c) {
         skipBlanks();
         if (pos >= src.length || src[pos] != c) {
-            throw new SyntaxException(new String(src), pos);
+            throw new SyntaxException(new String(src), "expected '" + c + "'", pos);
         }
+        pos++;
     }
 
 }

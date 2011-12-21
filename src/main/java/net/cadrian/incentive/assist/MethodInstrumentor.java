@@ -37,7 +37,8 @@ class MethodInstrumentor extends BehaviorInstrumentor {
 
     public MethodInstrumentor(final ClassInstrumentor a_classInstrumentor,
                               final CtMethod a_targetMethod, final int a_index, final ClassPool a_pool,
-            final int oldClassIndex) {
+                              final int oldClassIndex)
+        throws ClassNotFoundException, NotFoundException {
         super(a_classInstrumentor, a_targetMethod, a_pool, oldClassIndex);
         this.method = a_targetMethod;
         this.index = a_index;
@@ -60,8 +61,7 @@ class MethodInstrumentor extends BehaviorInstrumentor {
 
     @Override
     protected void insertClassInvariantCall(final boolean before)
-            throws CannotCompileException, NotFoundException,
-            ClassNotFoundException {
+        throws CannotCompileException, NotFoundException, ClassNotFoundException {
         if (before || !InstrumentorUtil.isPure(method)) {
             classInstrumentor.addClassInvariantCall(method, before, false);
         }

@@ -39,8 +39,9 @@ class ConstructorInstrumentor extends BehaviorInstrumentor {
     private final CtConstructor constructor;
 
     public ConstructorInstrumentor(final ClassInstrumentor a_classInstrumentor,
-            final CtConstructor a_constructor, final int a_index,
-            final ClassPool a_pool, final int oldClassIndex) {
+                                   final CtConstructor a_constructor, final int a_index,
+                                   final ClassPool a_pool, final int oldClassIndex)
+        throws ClassNotFoundException, NotFoundException {
         super(a_classInstrumentor, a_constructor, a_pool, oldClassIndex);
         this.constructor = a_constructor;
         this.index = a_index;
@@ -63,7 +64,7 @@ class ConstructorInstrumentor extends BehaviorInstrumentor {
 
     @Override
     protected void insertClassInvariantCall(final boolean before)
-            throws CannotCompileException, NotFoundException {
+        throws CannotCompileException, NotFoundException {
         if (!before) {
             classInstrumentor.addClassInvariantCall(constructor, false, true);
         }
