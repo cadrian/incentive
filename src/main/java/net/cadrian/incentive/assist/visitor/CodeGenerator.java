@@ -46,6 +46,10 @@ public abstract class CodeGenerator implements AssertionArg.Visitor,
         return accept(new RequireCodeGenerator(generics, behaviorInstrumentor, assertion), assertion);
     }
 
+    public static String ensure(final Map<String, String> generics, final BehaviorInstrumentor behaviorInstrumentor, final Assertion assertion) {
+        return accept(new EnsureCodeGenerator(generics, behaviorInstrumentor, assertion), assertion);
+    }
+
     protected static String accept(final CodeGenerator generator, final Assertion assertion) {
         try {
             assertion.accept(generator);
