@@ -240,7 +240,7 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             final IteratorPreparation preparation = new IteratorPreparation(this);
             appendCode(preparation, sequence);
             code.append(local.flag())
-                .append(" &= ");
+                .append(" = ");
             final List<Local> locals = preparation.locals;
             if (locals.isEmpty()) {
                 super.visitSequence(sequence);
