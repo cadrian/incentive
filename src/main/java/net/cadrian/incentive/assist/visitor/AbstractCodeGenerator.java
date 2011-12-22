@@ -192,7 +192,9 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
         this.generics = generics;
         this.counter = new Counter();
         this.local = counter.next();
-        code.append("{\nboolean ").append(local.flag()).append(" = true;\n");
+        code.append("{\nboolean ")
+            .append(local.flag())
+            .append(" = true;\n");
     }
 
     Local setLocal(final Local local) {
@@ -240,7 +242,7 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             final IteratorPreparation preparation = new IteratorPreparation(this);
             appendCode(preparation, sequence);
             code.append(local.flag())
-                .append(" = ");
+                .append(" = (");
             final List<Local> locals = preparation.locals;
             if (locals.isEmpty()) {
                 super.visitSequence(sequence);
@@ -253,7 +255,7 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
                     more = true;
                 }
             }
-            code.append(";\n");
+            code.append(");\n");
         }
     }
 

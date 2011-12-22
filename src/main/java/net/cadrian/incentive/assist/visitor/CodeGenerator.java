@@ -26,6 +26,7 @@ import net.cadrian.incentive.assist.assertion.AssertionOld;
 import net.cadrian.incentive.assist.assertion.AssertionResult;
 import net.cadrian.incentive.assist.assertion.AssertionSequence;
 import net.cadrian.incentive.assist.Assertion;
+import net.cadrian.incentive.assist.BehaviorInstrumentor;
 import net.cadrian.incentive.assist.ClassInstrumentor;
 
 public abstract class CodeGenerator implements AssertionArg.Visitor,
@@ -39,6 +40,10 @@ public abstract class CodeGenerator implements AssertionArg.Visitor,
 
     public static String invariant(final Map<String, String> generics, final ClassInstrumentor classInstrumentor, final Assertion assertion) {
         return accept(new InvariantCodeGenerator(generics, classInstrumentor, assertion), assertion);
+    }
+
+    public static String require(final Map<String, String> generics, final BehaviorInstrumentor behaviorInstrumentor, final Assertion assertion) {
+        return accept(new RequireCodeGenerator(generics, behaviorInstrumentor, assertion), assertion);
     }
 
     protected static String accept(final CodeGenerator generator, final Assertion assertion) {

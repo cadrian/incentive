@@ -141,9 +141,7 @@ public class ClassInstrumentor {
         addPrivateFlag(INVARIANT_FLAG_VAR);
         gatherInvariant(new HashSet<CtClass>(), invariantAssertion);
 
-        System.out.println("!!!!  invariant assertion: " + invariantAssertion);
-
-        addInvariantMethod();
+        defineInvariantMethod();
         for (final ConstructorInstrumentor constructor : constructors) {
             constructor.instrument();
         }
@@ -220,8 +218,8 @@ public class ClassInstrumentor {
         }
     }
 
-    private void addInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
-        LOG.info("Computing invariant of {}", targetClass.getName());
+    private void defineInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
+        LOG.info("Computing invariant of {}: {}", targetClass.getName(), invariantAssertion);
         final String code = CodeGenerator.invariant(generics, this, invariantAssertion);
         try {
             final CtMethod invariant = CtNewMethod.make(CtClass.voidType, INVARIANT_METHOD_NAME, new CtClass[0], new CtClass[0], code, targetClass);

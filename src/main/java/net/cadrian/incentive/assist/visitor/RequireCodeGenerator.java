@@ -22,33 +22,34 @@ import net.cadrian.incentive.assist.Assertion;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionOld;
 import net.cadrian.incentive.assist.assertion.AssertionResult;
-import net.cadrian.incentive.assist.assertion.InvariantAssertion;
-import net.cadrian.incentive.assist.ClassInstrumentor;
+import net.cadrian.incentive.assist.assertion.RequireAssertion;
+import net.cadrian.incentive.assist.BehaviorInstrumentor;
 
 import javassist.CtClass;
 
-class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantAssertion.Visitor {
+class RequireCodeGenerator extends AbstractCodeGenerator implements RequireAssertion.Visitor {
 
-    private final ClassInstrumentor classInstrumentor;
+    private final BehaviorInstrumentor behaviorInstrumentor;
     private final Assertion assertion;
     private boolean checked = false;
 
-    InvariantCodeGenerator(final Map<String, String> generics, final ClassInstrumentor classInstrumentor, final Assertion assertion) {
+    RequireCodeGenerator(final Map<String, String> generics, final BehaviorInstrumentor behaviorInstrumentor, final Assertion assertion) {
         super(generics);
-        this.classInstrumentor = classInstrumentor;
+        this.behaviorInstrumentor = behaviorInstrumentor;
         this.assertion = assertion;
-        code.append("try {\n")
-            .append(ClassInstrumentor.INVARIANT_FLAG_VAR)
-            .append(" = true;\n");
+        code.append("final ")
+            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
+            .append(" err = null;\n")
+            .append("try {\n");
     }
 
     private void check(final String localCheck) {
         code.append("if (!(")
             .append(localCheck)
             .append(")) throw new ")
-            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
             .append("(\"")
-            .append(classInstrumentor.getName())
+            .append(behaviorInstrumentor.getName())
             .append(": ")
             .append(assertion.toString().replace("\n", "\\n").replace("\"", "\\\""))
             .append(" is broken\");\n");
@@ -58,50 +59,60 @@ class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantA
     @Override
     protected String getCode() {
         if (!checked) {
-            return "{}";
+            return "";
         }
         code.append("} catch (")
-            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
             .append(" x) {\nthrow x;\n} catch (Exception x) {\n")
             .append("throw new ")
-            .append(ClassInstrumentor.INVARIANT_ERROR_NAME)
+            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
             .append("(\"")
-            .append(classInstrumentor.getName())
+            .append(behaviorInstrumentor.getName())
             .append(": ")
             .append(assertion.toString().replace("\n", "\\n").replace("\"", "\\\""))
-            .append(", \" + x.getMessage(), x);\n} finally {\n")
-            .append(ClassInstrumentor.INVARIANT_FLAG_VAR)
-            .append(" = false;\n}\n");
+            .append(", \" + x.getMessage(), x);\n}\n")
+            .append("if (err != null) throw err;\n");
         return super.getCode();
     }
 
     @Override
-    public void visitInvariant(final InvariantAssertion invariant){
-        for (final Map.Entry<CtClass, List<Assertion>> classContract: invariant.getContract().entrySet()) {
+    public void visitRequire(final RequireAssertion require){
+        for (final Map.Entry<CtClass, List<Assertion>> classContract: require.getContract().entrySet()) {
+            final boolean first = !checked;
             code.append("/*")
                 .append(classContract.getKey().getName())
                 .append("*/\n");
+            if (!first) {
+                code.append("if (err != null) {\nerr = null;\n");
+            }
+            code.append("try {\n");
             for (final Assertion assertion: classContract.getValue()) {
                 final String localFlag = local.flag();
                 assertion.accept(this);
                 check(localFlag);
+            }
+            code.append("} catch (")
+                .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
+                .append(" x) {\nerr = x;\n}\n");
+            if (!first) {
+                code.append("}\n");
             }
         }
     }
 
     @Override
     public void visitArg(final AssertionArg arg){
-        throw new RuntimeException("no arg allowed in invariant!");
+        code.append('$').append(arg.index);
     }
 
     @Override
     public void visitOld(final AssertionOld old){
-        throw new RuntimeException("no old allowed in invariant!");
+        throw new RuntimeException("no old allowed in require!");
     }
 
     @Override
     public void visitResult(final AssertionResult result){
-        throw new RuntimeException("no result allowed in invariant!");
+        throw new RuntimeException("no result allowed in require!");
     }
 
 }
