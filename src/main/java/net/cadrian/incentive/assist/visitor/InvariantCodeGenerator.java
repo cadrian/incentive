@@ -31,150 +31,15 @@ import net.cadrian.incentive.assist.ClassInstrumentor;
 
 import javassist.CtClass;
 
-class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion.Visitor {
-
-    private static class Counter {
-        private int value;
-
-        public void next() {
-            value++;
-        }
-
-        public void set(final int value) {
-            this.value = value;
-        }
-
-        public int get() {
-            return value;
-        }
-
-        public String check() {
-            return "b" + value;
-        }
-
-        public String count() {
-            return "n" + value;
-        }
-
-        public String index() {
-            return "i" + value;
-        }
-    }
-
-    private static class IteratorPreparation extends CodeGenerator {
-        final InvariantCodeGenerator host;
-        boolean inIterator = false;
-        final Counter local;
-        boolean prepared;
-
-        IteratorPreparation(final InvariantCodeGenerator host, final Counter local) {
-            this.host = host;
-            this.local = local;
-        }
-
-        private void openLoop(final Assertion value, final boolean init) {
-            local.next();
-            code.append("boolean ")
-                .append(local.check())
-                .append(" = ")
-                .append(init ? "true" : "false")
-                .append(";\n")
-                .append("int ")
-                .append(local.count())
-                .append(" = (");
-            value.accept(this);
-            code.append(").count();\n");
-            code.append("for (int ")
-                .append(local.index())
-                .append(" = 0; ")
-                .append(local.index())
-                .append(" < ")
-                .append(local.count());
-            if (init) {
-                code.append(" || ");
-            }
-            else {
-                code.append(" && !");
-            }
-            code.append(local.check())
-                .append("; ")
-                .append(local.index())
-                .append("++) {\n");
-        }
-
-        @Override
-        public void visitExists(final AssertionExists exists){
-            if (!inIterator) {
-                inIterator = true;
-                openLoop(exists.value, false);
-                exists.assertion.accept(host);
-                code.append("}\n");
-                inIterator = false;
-                prepared = true;
-            }
-        }
-
-        @Override
-        public void visitForall(final AssertionForall forall){
-            if (!inIterator) {
-                inIterator = true;
-                openLoop(forall.value, true);
-                forall.assertion.accept(host);
-                code.append("}\n");
-                inIterator = false;
-                prepared = true;
-            }
-        }
-
-        @Override
-        public void visitChunk(final AssertionChunk chunk){
-            if (inIterator) {
-                chunk.accept(host);
-            }
-        }
-
-        @Override
-        public void visitSequence(final AssertionSequence sequence) {
-            if (inIterator && sequence.parenthesized) {
-                code.append('(');
-            }
-            super.visitSequence(sequence);
-            if (inIterator && sequence.parenthesized) {
-                code.append(')');
-            }
-        }
-
-        @Override
-        public void visitArg(final AssertionArg arg){
-            if (inIterator) {
-                arg.accept(host);
-            }
-        }
-
-        @Override
-        public void visitOld(final AssertionOld old){
-            if (inIterator) {
-                old.accept(host);
-            }
-        }
-
-        @Override
-        public void visitResult(final AssertionResult result){
-            if (inIterator) {
-                result.accept(host);
-            }
-        }
-    }
+class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantAssertion.Visitor {
 
     private final ClassInstrumentor classInstrumentor;
     private final Assertion assertion;
-    private final Counter local;
 
     InvariantCodeGenerator(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
         this.classInstrumentor = classInstrumentor;
         this.assertion = assertion;
-        this.local = new Counter();
-        code.append("{\ntry {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append("=true;\nboolean b0 = true;\n");
+        code.append("try {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append(" = true;\n");
     }
 
     private void check(final String localCheck) {
@@ -202,7 +67,7 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
             .append(assertion.toString().replace("\n", "\\n").replace("\"", "\\\""))
             .append(", \" + x.getMessage(), x);\n} finally {\n")
             .append(ClassInstrumentor.INVARIANT_FLAG_VAR)
-            .append("=false;\n}\n}");
+            .append(" = false;\n}\n");
         return super.getCode();
     }
 
@@ -211,9 +76,9 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
         for (final Map.Entry<CtClass, List<Assertion>> classContract: invariant.getContract().entrySet()) {
             code.append("/*").append(classContract.getKey().getName()).append("*/\n");
             for (final Assertion assertion: classContract.getValue()) {
-                final String localCheck = local.check();
+                final String localFlag = local.flag();
                 assertion.accept(this);
-                check(localCheck);
+                check(localFlag);
             }
         }
     }
@@ -224,19 +89,6 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
     }
 
     @Override
-    public void visitChunk(final AssertionChunk chunk){
-        code.append(chunk.chunk);
-    }
-
-    @Override
-    public void visitExists(final AssertionExists exists){
-    }
-
-    @Override
-    public void visitForall(final AssertionForall forall){
-    }
-
-    @Override
     public void visitOld(final AssertionOld old){
         throw new RuntimeException("no old allowed in invariant!");
     }
@@ -244,29 +96,6 @@ class InvariantCodeGenerator extends CodeGenerator implements InvariantAssertion
     @Override
     public void visitResult(final AssertionResult result){
         throw new RuntimeException("no result allowed in invariant!");
-    }
-
-    @Override
-    public void visitSequence(final AssertionSequence sequence){
-        if (sequence.parenthesized) {
-            code.append('(');
-            super.visitSequence(sequence);
-            code.append(')');
-        }
-        else {
-            final String localCheck = local.check();
-            final IteratorPreparation preparation = new IteratorPreparation(this, local);
-            appendCode(preparation, sequence);
-            code.append(localCheck)
-                .append(" |= ");
-            if (preparation.prepared) {
-                code.append(local.check());
-            }
-            else {
-                super.visitSequence(sequence);
-            }
-            code.append(";\n");
-        }
     }
 
 }

@@ -26,15 +26,14 @@ import net.cadrian.incentive.assist.assertion.AssertionSequence;
 import net.cadrian.incentive.assist.Assertion;
 import net.cadrian.incentive.assist.ClassInstrumentor;
 
-public abstract class CodeGenerator implements
-                                   AssertionArg.Visitor,
-                                   AssertionChunk.Visitor,
-                                   AssertionExists.Visitor,
-                                   AssertionForall.Visitor,
-                                   AssertionOld.Visitor,
-                                   AssertionResult.Visitor,
-                                   AssertionSequence.Visitor,
-                                   Visitor {
+public abstract class CodeGenerator implements AssertionArg.Visitor,
+                                               AssertionChunk.Visitor,
+                                               AssertionExists.Visitor,
+                                               AssertionForall.Visitor,
+                                               AssertionOld.Visitor,
+                                               AssertionResult.Visitor,
+                                               AssertionSequence.Visitor,
+                                               Visitor {
 
     public static String invariant(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
         return accept(new InvariantCodeGenerator(classInstrumentor, assertion), assertion);
@@ -53,7 +52,7 @@ public abstract class CodeGenerator implements
     protected StringBuilder code;
 
     protected CodeGenerator() {
-        this.code = new StringBuilder();
+        this.code = new StringBuilder(1024);
     }
 
     protected void appendCode(final CodeGenerator generator, final Assertion assertion) {
@@ -69,37 +68,7 @@ public abstract class CodeGenerator implements
     }
 
     @Override
-    public void visitArg(final AssertionArg arg){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitChunk(final AssertionChunk chunk){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitExists(final AssertionExists exists){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitForall(final AssertionForall forall){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitOld(final AssertionOld old){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitResult(final AssertionResult result){
-        throw new RuntimeException();
-    }
-
-    @Override
-    public void visitSequence(final AssertionSequence sequence) {
+    public void visitSequence(final AssertionSequence sequence){
         for (final Assertion assertion: sequence.getAssertions()) {
             assertion.accept(this);
         }

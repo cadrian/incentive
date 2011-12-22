@@ -62,9 +62,9 @@ public final class Instrumentor implements ClassFileTransformer {
      * @param ins
      */
     public static void premain(final String options, final Instrumentation ins) {
-        LOG.info("Starting Incentive...");
+        LOG.debug("Starting Incentive...");
         ins.addTransformer(new Instrumentor(options));
-        LOG.info("Incentive started.");
+        LOG.debug("Incentive started.");
     }
 
     private Instrumentor(final String options) {
@@ -150,9 +150,11 @@ public final class Instrumentor implements ClassFileTransformer {
 
             writeToCache(className, result);
             return result;
-        } catch (final Exception e) {
+        } catch (final Exception x) {
+            LOG.error("Unable to load class: {}.", className, x);
+        } catch (final Error e) {
             LOG.error("Unable to load class: {}.", className, e);
-            LOG.debug("ClassLoader: {}.", loader);
+            System.exit(1);
         }
         return classfileBuffer;
     }
