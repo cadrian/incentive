@@ -15,6 +15,8 @@
  */
 package net.cadrian.incentive.assist.visitor;
 
+import java.util.Map;
+
 import net.cadrian.incentive.assist.Visitor;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionChunk;
@@ -35,8 +37,8 @@ public abstract class CodeGenerator implements AssertionArg.Visitor,
                                                AssertionSequence.Visitor,
                                                Visitor {
 
-    public static String invariant(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
-        return accept(new InvariantCodeGenerator(classInstrumentor, assertion), assertion);
+    public static String invariant(final Map<String, String> generics, final ClassInstrumentor classInstrumentor, final Assertion assertion) {
+        return accept(new InvariantCodeGenerator(generics, classInstrumentor, assertion), assertion);
     }
 
     protected static String accept(final CodeGenerator generator, final Assertion assertion) {

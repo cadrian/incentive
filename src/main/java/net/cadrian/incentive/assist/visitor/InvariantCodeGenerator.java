@@ -36,7 +36,8 @@ class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantA
     private final ClassInstrumentor classInstrumentor;
     private final Assertion assertion;
 
-    InvariantCodeGenerator(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
+    InvariantCodeGenerator(final Map<String, String> generics, final ClassInstrumentor classInstrumentor, final Assertion assertion) {
+        super(generics);
         this.classInstrumentor = classInstrumentor;
         this.assertion = assertion;
         code.append("try {\n").append(ClassInstrumentor.INVARIANT_FLAG_VAR).append(" = true;\n");

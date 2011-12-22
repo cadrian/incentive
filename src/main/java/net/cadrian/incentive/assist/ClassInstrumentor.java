@@ -222,7 +222,7 @@ public class ClassInstrumentor {
 
     private void addInvariantMethod() throws CannotCompileException, ClassNotFoundException, CompileError {
         LOG.info("Computing invariant of {}", targetClass.getName());
-        final String code = CodeGenerator.invariant(this, invariantAssertion);
+        final String code = CodeGenerator.invariant(generics, this, invariantAssertion);
         try {
             final CtMethod invariant = CtNewMethod.make(CtClass.voidType, INVARIANT_METHOD_NAME, new CtClass[0], new CtClass[0], code, targetClass);
             invariant.setModifiers(Modifier.PRIVATE);

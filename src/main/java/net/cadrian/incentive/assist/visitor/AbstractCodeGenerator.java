@@ -15,6 +15,10 @@
  */
 package net.cadrian.incentive.assist.visitor;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionChunk;
 import net.cadrian.incentive.assist.assertion.AssertionExists;
@@ -27,25 +31,9 @@ import net.cadrian.incentive.assist.ClassInstrumentor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.ArrayList;
-import java.util.List;
 
 abstract class AbstractCodeGenerator extends CodeGenerator {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractCodeGenerator.class);
-
-    public static String invariant(final ClassInstrumentor classInstrumentor, final Assertion assertion) {
-        return accept(new InvariantCodeGenerator(classInstrumentor, assertion), assertion);
-    }
-
-    protected static String accept(final CodeGenerator generator, final Assertion assertion) {
-        try {
-            assertion.accept(generator);
-            return generator.getCode();
-        } catch (RuntimeException rx) {
-            LOG.error("Error while generating assertion: " + assertion, rx);
-            throw rx;
-        }
-    }
 
     protected static class Local {
         private final int value;
@@ -118,11 +106,26 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             return result;
         }
 
-        private void loop(final Assertion value, final Assertion assertion, final boolean init) {
+        private void loop(final Assertion value, final Assertion assertion, final String type, final String var, final boolean init) {
             if (!inIterator) {
                 inIterator = true;
                 final Local local = openLoop(value, init);
                 final Local previousLocal = host.setLocal(local);
+                code.append("final ");
+                final String genType = host.generics.get(type);
+                if (genType == null) {
+                    code.append(type);
+                }
+                else {
+                    code.append(genType);
+                }
+                code.append(' ')
+                    .append(var)
+                    .append(" = (");
+                value.accept(this);
+                code.append(").item(")
+                    .append(local.index())
+                    .append(");\n");
                 assertion.accept(host);
                 host.setLocal(previousLocal);
                 code.append("}\n");
@@ -133,12 +136,12 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
 
         @Override
         public void visitExists(final AssertionExists exists){
-            loop(exists.value, exists.assertion, false);
+            loop(exists.value, exists.assertion, exists.type, exists.var, false);
         }
 
         @Override
         public void visitForall(final AssertionForall forall){
-            loop(forall.value, forall.assertion, true);
+            loop(forall.value, forall.assertion, forall.type, forall.var, true);
         }
 
         @Override
@@ -181,10 +184,12 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
         }
     }
 
+    protected final Map<String, String> generics;
     protected final Counter counter;
     protected Local local;
 
-    protected AbstractCodeGenerator() {
+    protected AbstractCodeGenerator(final Map<String, String> generics) {
+        this.generics = generics;
         this.counter = new Counter();
         this.local = counter.next();
         code.append("{\nboolean ").append(local.flag()).append(" = true;\n");
