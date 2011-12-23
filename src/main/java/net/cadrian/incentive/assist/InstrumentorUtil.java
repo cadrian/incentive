@@ -238,37 +238,6 @@ final class InstrumentorUtil {
         return result;
     }
 
-    static String parseAssertions(final String[] assertions,
-                                  final CtClass targetClass, final ClassPool pool,
-                                  final String errorClassName, final String errorMessage,
-                                  final Map<String, String> generics,
-                                  final TransformCodec... codecs) throws CannotCompileException,
-                                                                         CompileError {
-        final StringBuilder src = new StringBuilder();
-        for (final String assertion : assertions) {
-            final String transformed = transform(assertion, targetClass, pool, generics, codecs);
-            if (transformed != null) {
-                src.append(String.format("{boolean b=false;try{%s}\ncatch(Throwable t){throw new %s(\"%s: {%s}, \" + t.getMessage(), t);}\nif(!b) throw new %s(\"%s: {%s} is broken\");}\n",
-                                         transformed, errorClassName, errorMessage, assertion, errorClassName, errorMessage, assertion));
-            }
-        }
-        return src.toString();
-    }
-
-    static String transform(final String src,
-                            final CtClass targetClass, final ClassPool pool,
-                            final Map<String, String> generics,
-                            final TransformCodec... codecs)
-        throws CannotCompileException, CompileError {
-        String result = src;
-        if (codecs != null) {
-            for (final TransformCodec codec : codecs) {
-                result = codec.decode(result, targetClass, pool, generics);
-            }
-        }
-        return result;
-    }
-
     static String voidify(final String descriptor) {
         final int index = descriptor.indexOf(')');
         if (index < 0) {
