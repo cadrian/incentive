@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.cadrian.incentive.assist.Assertion;
+import net.cadrian.incentive.assist.SyntaxException;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionChunk;
 import net.cadrian.incentive.assist.assertion.AssertionOld;
@@ -81,10 +82,10 @@ class EnsureOldCodeGenerator extends AbstractCodeGenerator implements EnsureAsse
             return result;
         } catch (NotFoundException nfx) {
             LOG.error("old", nfx);
-            throw new RuntimeException(nfx);
+            throw new SyntaxException(nfx);
         } catch (CompileError ce) {
             LOG.error("old", ce);
-            throw new RuntimeException(ce);
+            throw new SyntaxException(ce);
         }
     }
 
@@ -96,7 +97,7 @@ class EnsureOldCodeGenerator extends AbstractCodeGenerator implements EnsureAsse
             return new StmtTypeVisitor(targetClass, pool).getType(tree);
         } catch (CompileError ce) {
             LOG.error(src, ce);
-            throw new RuntimeException(ce);
+            throw new SyntaxException(ce);
         }
     }
 
@@ -174,7 +175,7 @@ class EnsureOldCodeGenerator extends AbstractCodeGenerator implements EnsureAsse
             LOG.info("Added field: {}", field);
         } catch (CannotCompileException ccx) {
             LOG.error("old", ccx);
-            throw new RuntimeException(ccx);
+            throw new SyntaxException(ccx);
         }
 
         old.old.accept(this);
@@ -201,14 +202,14 @@ class EnsureOldCodeGenerator extends AbstractCodeGenerator implements EnsureAsse
     @Override
     public void visitResult(final AssertionResult result){
         if (inOld) {
-            throw new RuntimeException("no {result} allowed in old expressions!");
+            throw new SyntaxException("no {result} allowed in old expressions!");
         }
     }
 
     @Override
     public void visitExists(final AssertionExists exists){
         if (inOld) {
-            throw new RuntimeException("no {exists} allowed in old expressions!");
+            throw new SyntaxException("no {exists} allowed in old expressions!");
         }
         super.visitExists(exists);
     }
@@ -216,7 +217,7 @@ class EnsureOldCodeGenerator extends AbstractCodeGenerator implements EnsureAsse
     @Override
     public void visitForall(final AssertionForall forall){
         if (inOld) {
-            throw new RuntimeException("no {forall} allowed in old expressions!");
+            throw new SyntaxException("no {forall} allowed in old expressions!");
         }
         super.visitForall(forall);
     }

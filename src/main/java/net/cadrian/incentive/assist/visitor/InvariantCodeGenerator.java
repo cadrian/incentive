@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.cadrian.incentive.assist.Assertion;
+import net.cadrian.incentive.assist.SyntaxException;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionOld;
 import net.cadrian.incentive.assist.assertion.AssertionResult;
@@ -91,17 +92,17 @@ class InvariantCodeGenerator extends AssertionCodeGenerator implements Invariant
 
     @Override
     public void visitArg(final AssertionArg arg){
-        throw new RuntimeException("no arg allowed in invariant!");
+        throw new SyntaxException("no arg allowed in invariant!");
     }
 
     @Override
     public void visitOld(final AssertionOld old){
-        throw new RuntimeException("no old allowed in invariant!");
+        throw new SyntaxException("no old allowed in invariant!");
     }
 
     @Override
     public void visitResult(final AssertionResult result){
-        throw new RuntimeException("no result allowed in invariant!");
+        throw new SyntaxException("no result allowed in invariant!");
     }
 
 }

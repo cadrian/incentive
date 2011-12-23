@@ -89,26 +89,22 @@ public class HashedMap<K, V> extends AbstractMap<K, V> implements WritableMap<K,
 
     @Override
     public Set<K> keySet() {
-        final int n = set.elements.length;
-        final HashedSet<K> result = new HashedSet<K>(n);
-        for (int i = 0; i < n; i++) {
-            final MapEntry<K, V> element = set.elements[i];
-            if (element != null) {
-                result.add(element.key);
-            }
+        final Iterator<MapEntry<K, V>> i = set.iterator();
+        final HashedSet<K> result = new HashedSet<K>(i.count());
+        while (!i.isEmpty()) {
+            result.add(i.item().key);
+            i.next();
         }
         return result;
     }
 
     @Override
     public Collection<V> values() {
-        final int n = set.elements.length;
-        final RingArray<V> result = new RingArray<V>(set.count());
-        for (int i = 0; i < n; i++) {
-            final MapEntry<K, V> element = set.elements[i];
-            if (element != null) {
-                result.addLast(element.value);
-            }
+        final Iterator<MapEntry<K, V>> i = set.iterator();
+        final RingArray<V> result = new RingArray<V>(i.count());
+        while (!i.isEmpty()) {
+            result.addLast(i.item().value);
+            i.next();
         }
         return result;
     }

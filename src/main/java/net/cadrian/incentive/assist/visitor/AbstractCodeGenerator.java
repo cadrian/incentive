@@ -90,12 +90,9 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             code.append(").iterator();\n");
             code.append("while (!")
                 .append(result.iterator())
-                .append(".isEmpty()");
-            if (init) {
-                code.append(" || ");
-            }
-            else {
-                code.append(" && !");
+                .append(".isEmpty() && ");
+            if (!init) {
+                code.append('!');
             }
             code.append(result.name())
                 .append(") {\n");
@@ -110,9 +107,11 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
                 code.append("final ");
                 final String genType = host.generics.get(type);
                 if (genType == null) {
+                    LOG.warn("type not found: {}", type);
                     code.append(type);
                 }
                 else {
+                    LOG.warn("type found: {} is {}", type, genType);
                     code.append(genType);
                 }
                 code.append(' ')

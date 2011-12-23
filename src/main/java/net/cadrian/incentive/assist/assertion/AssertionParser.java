@@ -16,18 +16,13 @@
 package net.cadrian.incentive.assist.assertion;
 
 import net.cadrian.incentive.assist.Assertion;
+import net.cadrian.incentive.assist.SyntaxException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class AssertionParser {
     private static final Logger LOG = LoggerFactory.getLogger(AssertionParser.class);
-
-    public static class SyntaxException extends RuntimeException {
-        SyntaxException(final String src, final String message, final int pos) {
-            super("{" + src + "}" + (message == null ? "" : ": " + message) + " at " + pos);
-        }
-    }
 
     private static enum Keyword {
         result {
@@ -80,7 +75,7 @@ class AssertionParser {
             lastAssertion = result;
             parseAssertion();
             return result;
-        } catch (RuntimeException rx) {
+        } catch (SyntaxException rx) {
             LOG.error(">>>> parsing failed", rx);
             throw rx;
         } catch (Error e) {

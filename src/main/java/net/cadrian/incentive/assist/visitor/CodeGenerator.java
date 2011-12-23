@@ -17,6 +17,7 @@ package net.cadrian.incentive.assist.visitor;
 
 import java.util.Map;
 
+import net.cadrian.incentive.assist.SyntaxException;
 import net.cadrian.incentive.assist.Visitor;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionChunk;
@@ -55,13 +56,8 @@ public abstract class CodeGenerator implements AssertionArg.Visitor,
     }
 
     protected static String accept(final CodeGenerator generator, final Assertion assertion) {
-        try {
-            assertion.accept(generator);
-            return generator.getCode();
-        } catch (RuntimeException rx) {
-            rx.printStackTrace();
-            throw rx;
-        }
+        assertion.accept(generator);
+        return generator.getCode();
     }
 
     protected StringBuilder code;

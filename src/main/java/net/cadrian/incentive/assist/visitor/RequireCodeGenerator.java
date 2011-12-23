@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.cadrian.incentive.assist.Assertion;
+import net.cadrian.incentive.assist.SyntaxException;
 import net.cadrian.incentive.assist.assertion.AssertionArg;
 import net.cadrian.incentive.assist.assertion.AssertionOld;
 import net.cadrian.incentive.assist.assertion.AssertionResult;
@@ -43,7 +44,7 @@ class RequireCodeGenerator extends AssertionCodeGenerator implements RequireAsse
             .append("try {\n");
     }
 
-    private void check(final String localCheck) {
+    private void check(final String localCheck, final Assertion assertion) {
         code.append("if (!(")
             .append(localCheck)
             .append(")) throw new ")
@@ -89,7 +90,7 @@ class RequireCodeGenerator extends AssertionCodeGenerator implements RequireAsse
             for (final Assertion assertion: classContract.getValue()) {
                 final String localFlag = local.name();
                 assertion.accept(this);
-                check(localFlag);
+                check(localFlag, assertion);
             }
             code.append("} catch (")
                 .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
@@ -107,12 +108,12 @@ class RequireCodeGenerator extends AssertionCodeGenerator implements RequireAsse
 
     @Override
     public void visitOld(final AssertionOld old){
-        throw new RuntimeException("no old allowed in require!");
+        throw new SyntaxException("no old allowed in require!");
     }
 
     @Override
     public void visitResult(final AssertionResult result){
-        throw new RuntimeException("no result allowed in require!");
+        throw new SyntaxException("no result allowed in require!");
     }
 
 }

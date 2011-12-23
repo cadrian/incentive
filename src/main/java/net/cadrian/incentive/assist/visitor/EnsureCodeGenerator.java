@@ -44,7 +44,7 @@ class EnsureCodeGenerator extends AssertionCodeGenerator implements EnsureAssert
         code.append("if (!(")
             .append(localCheck)
             .append(")) throw new ")
-            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
+            .append(BehaviorInstrumentor.POSTCONDITION_ERROR_NAME)
             .append("(\"")
             .append(behaviorInstrumentor.getName())
             .append(": ")
@@ -59,10 +59,10 @@ class EnsureCodeGenerator extends AssertionCodeGenerator implements EnsureAssert
             return "";
         }
         code.append("} catch (")
-            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
+            .append(BehaviorInstrumentor.POSTCONDITION_ERROR_NAME)
             .append(" x) {\nthrow x;\n} catch (Exception x) {\n")
             .append("throw new ")
-            .append(BehaviorInstrumentor.PRECONDITION_ERROR_NAME)
+            .append(BehaviorInstrumentor.POSTCONDITION_ERROR_NAME)
             .append("(\"")
             .append(behaviorInstrumentor.getName())
             .append(": ")
