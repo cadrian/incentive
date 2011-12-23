@@ -26,13 +26,15 @@ import javassist.CtClass;
 
 abstract class ContractAssertion implements Assertion {
     private final Map<CtClass, List<Assertion>> contract;
+    private final int[] oldIndex;
 
     public ContractAssertion() {
         this.contract = new LinkedHashMap<CtClass, List<Assertion>>();
+        oldIndex = new int[]{0};
     }
 
     public void add(final CtClass targetClass, final String assertion) {
-        final AssertionParser parser = new AssertionParser(assertion);
+        final AssertionParser parser = new AssertionParser(assertion, oldIndex);
         List<Assertion> classContract = contract.get(targetClass);
         if (classContract == null) {
             classContract = new ArrayList<Assertion>();

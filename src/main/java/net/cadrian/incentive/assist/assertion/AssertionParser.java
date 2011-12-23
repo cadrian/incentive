@@ -62,10 +62,14 @@ class AssertionParser {
 
     private final char[] src;
     private int pos;
+    private final int[] oldIndex;
+    private final NestAssertion oldNester;
 
-    public AssertionParser(final String assertion) {
+    public AssertionParser(final String assertion, final int[] oldIndex) {
         src = assertion.toCharArray();
         pos = 0;
+        this.oldIndex = oldIndex;
+        oldNester = OLD_NESTER(oldIndex);
     }
 
     private AssertionSequence lastAssertion;
@@ -195,15 +199,19 @@ class AssertionParser {
         lastAssertion = oldSequence;
     }
 
-    private static final NestAssertion OLD_NESTER = new NestAssertion() {
+    private static final NestAssertion OLD_NESTER(final int[] oldIndex) {
+        return new NestAssertion() {
             @Override
             public Assertion nest(final AssertionSequence nested) {
-                return new AssertionOld(nested);
+                final int index = oldIndex[0]++;
+                LOG.info("{} -- old nest index: {}", this, index);
+                return new AssertionOld(nested, index);
             }
         };
+    }
 
     private void parseOld() {
-        parseNestedAssertion(OLD_NESTER);
+        parseNestedAssertion(oldNester);
     }
 
     private static final NestAssertion FORALL_NESTER(final String type, final String var, final AssertionSequence value) {

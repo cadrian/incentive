@@ -13,7 +13,7 @@
  * for the specific language governing rights and limitations under the
  * License.
  */
-package net.cadrian.incentive.assist;
+package net.cadrian.incentive.assist.visitor;
 
 import javassist.ClassPool;
 import javassist.CtClass;

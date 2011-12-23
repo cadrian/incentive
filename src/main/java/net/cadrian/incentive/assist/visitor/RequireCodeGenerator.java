@@ -27,7 +27,7 @@ import net.cadrian.incentive.assist.BehaviorInstrumentor;
 
 import javassist.CtClass;
 
-class RequireCodeGenerator extends AbstractCodeGenerator implements RequireAssertion.Visitor {
+class RequireCodeGenerator extends AssertionCodeGenerator implements RequireAssertion.Visitor {
 
     private final BehaviorInstrumentor behaviorInstrumentor;
     private final Assertion assertion;
@@ -87,7 +87,7 @@ class RequireCodeGenerator extends AbstractCodeGenerator implements RequireAsser
             }
             code.append("try {\n");
             for (final Assertion assertion: classContract.getValue()) {
-                final String localFlag = local.flag();
+                final String localFlag = local.name();
                 assertion.accept(this);
                 check(localFlag);
             }

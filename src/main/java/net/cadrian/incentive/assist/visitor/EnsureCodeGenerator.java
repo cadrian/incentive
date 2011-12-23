@@ -27,7 +27,7 @@ import net.cadrian.incentive.assist.BehaviorInstrumentor;
 
 import javassist.CtClass;
 
-class EnsureCodeGenerator extends AbstractCodeGenerator implements EnsureAssertion.Visitor {
+class EnsureCodeGenerator extends AssertionCodeGenerator implements EnsureAssertion.Visitor {
 
     private final BehaviorInstrumentor behaviorInstrumentor;
     private final Assertion assertion;
@@ -78,7 +78,7 @@ class EnsureCodeGenerator extends AbstractCodeGenerator implements EnsureAsserti
                 .append(classContract.getKey().getName())
                 .append("*/\n");
             for (final Assertion assertion: classContract.getValue()) {
-                final String localFlag = local.flag();
+                final String localFlag = local.name();
                 assertion.accept(this);
                 check(localFlag);
             }
@@ -92,7 +92,7 @@ class EnsureCodeGenerator extends AbstractCodeGenerator implements EnsureAsserti
 
     @Override
     public void visitOld(final AssertionOld old){
-        code.append("$1.old???");
+        code.append("$1.old").append(old.index);
     }
 
     @Override

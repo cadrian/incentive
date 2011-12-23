@@ -27,7 +27,7 @@ import net.cadrian.incentive.assist.ClassInstrumentor;
 
 import javassist.CtClass;
 
-class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantAssertion.Visitor {
+class InvariantCodeGenerator extends AssertionCodeGenerator implements InvariantAssertion.Visitor {
 
     private final ClassInstrumentor classInstrumentor;
     private final Assertion assertion;
@@ -82,7 +82,7 @@ class InvariantCodeGenerator extends AbstractCodeGenerator implements InvariantA
                 .append(classContract.getKey().getName())
                 .append("*/\n");
             for (final Assertion assertion: classContract.getValue()) {
-                final String localFlag = local.flag();
+                final String localFlag = local.name();
                 assertion.accept(this);
                 check(localFlag);
             }

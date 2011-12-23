@@ -28,9 +28,11 @@ public class AssertionOld implements Assertion {
     }
 
     public final AssertionSequence old;
+    public final int index;
 
-    AssertionOld(final AssertionSequence nested) {
+    AssertionOld(final AssertionSequence nested, final int index) {
         this.old = nested;
+        this.index = index;
     }
 
     @Override

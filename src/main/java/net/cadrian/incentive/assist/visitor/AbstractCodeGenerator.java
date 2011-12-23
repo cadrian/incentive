@@ -35,22 +35,23 @@ import org.slf4j.LoggerFactory;
 abstract class AbstractCodeGenerator extends CodeGenerator {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractCodeGenerator.class);
 
-    protected static class Local {
+    protected static interface Local {
+        String name();
+    }
+
+    protected static class IteratorLocal implements Local {
         private final int value;
 
-        Local(final int value) {
+        IteratorLocal(final int value) {
             this.value = value;
         }
 
-        public String flag() {
+        @Override
+        public String name() {
             return "b" + value;
         }
 
-        public String count() {
-            return "n" + value;
-        }
-
-        public String index() {
+        public String iterator() {
             return "i" + value;
         }
     }
@@ -58,8 +59,8 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
     protected static class Counter {
         private int value;
 
-        public Local next() {
-            return new Local(value++);
+        public IteratorLocal next() {
+            return new IteratorLocal(value++);
         }
     }
 
@@ -75,41 +76,36 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             this.locals = new ArrayList<Local>();
         }
 
-        private Local openLoop(final Assertion value, final boolean init) {
-            final Local result = counter.next();
+        private IteratorLocal openLoop(final Assertion value, final boolean init) {
+            final IteratorLocal result = counter.next();
             code.append("boolean ")
-                .append(result.flag())
+                .append(result.name())
                 .append(" = ")
                 .append(init ? "true" : "false")
                 .append(";\n")
-                .append("int ")
-                .append(result.count())
+                .append("net.cadrian.collection.Iterator ")
+                .append(result.iterator())
                 .append(" = (");
             value.accept(this);
-            code.append(").count();\n");
-            code.append("for (int ")
-                .append(result.index())
-                .append(" = 0; ")
-                .append(result.index())
-                .append(" < ")
-                .append(result.count());
+            code.append(").iterator();\n");
+            code.append("while (!")
+                .append(result.iterator())
+                .append(".isEmpty()");
             if (init) {
                 code.append(" || ");
             }
             else {
                 code.append(" && !");
             }
-            code.append(result.flag())
-                .append("; ")
-                .append(result.index())
-                .append("++) {\n");
+            code.append(result.name())
+                .append(") {\n");
             return result;
         }
 
         private void loop(final Assertion value, final Assertion assertion, final String type, final String var, final boolean init) {
             if (!inIterator) {
                 inIterator = true;
-                final Local local = openLoop(value, init);
+                final IteratorLocal local = openLoop(value, init);
                 final Local previousLocal = host.setLocal(local);
                 code.append("final ");
                 final String genType = host.generics.get(type);
@@ -121,14 +117,13 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
                 }
                 code.append(' ')
                     .append(var)
-                    .append(" = (");
-                value.accept(this);
-                code.append(").item(")
-                    .append(local.index())
-                    .append(");\n");
+                    .append(" = (")
+                    .append(local.iterator())
+                    .append(").item();\n");
                 assertion.accept(host);
                 host.setLocal(previousLocal);
-                code.append("}\n");
+                code.append(local.iterator())
+                    .append(".next();\n}\n");
                 inIterator = false;
                 locals.add(local);
             }
@@ -190,11 +185,15 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
 
     protected AbstractCodeGenerator(final Map<String, String> generics) {
         this.generics = generics;
-        this.counter = new Counter();
-        this.local = counter.next();
-        code.append("{\nboolean ")
-            .append(local.flag())
-            .append(" = true;\n");
+        this.counter = createCounter();
+        this.local = firstLocal();
+        code.append("{\n");
+    }
+
+    protected abstract Local firstLocal();
+
+    protected Counter createCounter() {
+        return new Counter();
     }
 
     Local setLocal(final Local local) {
@@ -241,7 +240,7 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
             final Local local = this.local;
             final IteratorPreparation preparation = new IteratorPreparation(this);
             appendCode(preparation, sequence);
-            code.append(local.flag())
+            code.append(local.name())
                 .append(" = (");
             final List<Local> locals = preparation.locals;
             if (locals.isEmpty()) {
@@ -251,7 +250,7 @@ abstract class AbstractCodeGenerator extends CodeGenerator {
                 boolean more = false;
                 for (final Local prepLocal: locals) {
                     if (more) code.append("&&");
-                    code.append(prepLocal.flag());
+                    code.append(prepLocal.name());
                     more = true;
                 }
             }

@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-import javassist.bytecode.Descriptor;
 import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.compiler.CompileError;
@@ -32,6 +31,7 @@ import javassist.NotFoundException;
 
 import net.cadrian.incentive.assist.assertion.EnsureAssertion;
 import net.cadrian.incentive.assist.assertion.RequireAssertion;
+import net.cadrian.incentive.assist.visitor.CodeGenerator;
 import net.cadrian.incentive.Ensure;
 import net.cadrian.incentive.error.EnsureError;
 import net.cadrian.incentive.error.RequireError;
@@ -39,12 +39,11 @@ import net.cadrian.incentive.Require;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import net.cadrian.incentive.assist.visitor.CodeGenerator;
 
 public abstract class BehaviorInstrumentor {
     private static final Logger LOG = LoggerFactory.getLogger(BehaviorInstrumentor.class);
 
-    private static final String OLD_LOCAL_VAR = "__incentive_old__";
+    public static final String OLD_LOCAL_VAR = "__incentive_old__";
 
     @SuppressWarnings("boxing")
     static final String OLD_CLASS_NAME(final CtClass parent, final int index) {
@@ -69,18 +68,18 @@ public abstract class BehaviorInstrumentor {
     protected abstract void setPreconditionModifiers(CtMethod a_precondition);
 
     protected final ClassInstrumentor classInstrumentor;
-    private final CtBehavior behavior;
-    private final ClassPool pool;
-    protected final CtClass targetClass;
+    public final CtBehavior behavior;
+    public final ClassPool pool;
+    public final CtClass targetClass;
 
     final Instrumentor instrumentor;
 
-    private final CtClass oldValuesClass;
-    private CtMethod precondition;
-    private CtMethod postcondition;
+    public final CtClass oldValuesClass;
+    public CtMethod precondition;
+    public CtMethod postcondition;
 
-    private RequireAssertion preconditionAssertion;
-    private EnsureAssertion postconditionAssertion;
+    private final RequireAssertion preconditionAssertion;
+    private final EnsureAssertion postconditionAssertion;
 
     public BehaviorInstrumentor(final ClassInstrumentor a_classInstrumentor, final CtBehavior a_behavior, final ClassPool a_pool, final int a_oldClassIndex)
         throws ClassNotFoundException, NotFoundException {
@@ -147,9 +146,9 @@ public abstract class BehaviorInstrumentor {
 
     void instrument() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
         gatherPreconditions(new HashSet<CtClass>(), preconditionAssertion);
-        definePreconditionMethod();
-
         gatherPostconditions(new HashSet<CtClass>(), postconditionAssertion);
+
+        definePreconditionMethod();
         definePostconditionMethod();
 
         // NOTE! insert() adds code at the very start of the bytecode block;
@@ -207,13 +206,15 @@ public abstract class BehaviorInstrumentor {
 
     private void definePreconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError, IOException {
         LOG.info("Computing precondition of {}: {}", behavior.getLongName(), preconditionAssertion);
+        LOG.info("with old expressions from postcondition of {}: {}", behavior.getLongName(), postconditionAssertion);
         final StringBuilder src = new StringBuilder("{\n");
-        fillPreconditionClass();
         src.append("final ")
             .append(oldClassName)
             .append(" result = new ")
             .append(oldClassName)
             .append("();\n");
+        src.append(CodeGenerator.ensureOld(classInstrumentor.generics, this, postconditionAssertion));
+        commitPreconditionClass();
         src.append(CodeGenerator.require(classInstrumentor.generics, this, preconditionAssertion));
         src.append("return result;\n}");
         final String code = src.toString();
@@ -230,66 +231,11 @@ public abstract class BehaviorInstrumentor {
         }
     }
 
-    private void fillPreconditionClass() throws ClassNotFoundException, NotFoundException, CannotCompileException, CompileError, IOException {
+    private void commitPreconditionClass() throws ClassNotFoundException, NotFoundException, CannotCompileException, CompileError, IOException {
         oldValuesClass.setModifiers(Modifier.FINAL);
-        //addPreconditionClassFields(new HashSet<CtClass>(), oldValuesClass, null);
         instrumentor.writeToCache(oldClassName, oldValuesClass.toBytecode());
         oldValuesClass.toClass(); // to load it in the JVM
     }
-
-//    private TransformCodec addPreconditionClassFields(final Set<CtClass> classes, final CtClass a_preconditionClass, final TransformCodec a_oldClassCodec) throws ClassNotFoundException, NotFoundException, CannotCompileException, CompileError {
-//        TransformCodec result = a_oldClassCodec;
-//
-//        if (classes.contains(targetClass)) return result;
-//        classes.add(targetClass);
-//
-//        for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
-//            final BehaviorInstrumentor parentBehavior = parent.getBehavior(getKey());
-//            if (parentBehavior != null) {
-//                result = parentBehavior.addPreconditionClassFields(classes, a_preconditionClass, result);
-//            }
-//        }
-//
-//        final Ensure ensure = (Ensure) getPrecursor().getAnnotation(Ensure.class);
-//        if (ensure != null) {
-//            for (final String assertion : ensure.value()) {
-//                result = TransformCodecs.PRECONDITION_OLD_CLASS_CODEC(pool, targetClass, behavior, a_preconditionClass, result);
-//                InstrumentorUtil.transform(assertion, targetClass, pool, classInstrumentor.generics,
-//                                           TransformCodecs.PRECONDITION_ARGUMENTS_CODEC, result);
-//            }
-//        }
-//
-//        return result;
-//    }
-
-//    private TransformCodec addPreconditionOld(final Set<CtClass> classes, final StringBuilder src, final TransformCodec a_oldValuesCodec)
-//        throws ClassNotFoundException, NotFoundException, CannotCompileException, CompileError {
-//        TransformCodec result = a_oldValuesCodec;
-//
-//        if (classes.contains(targetClass)) return result;
-//        classes.add(targetClass);
-//
-//        for (final ClassInstrumentor parent : classInstrumentor.getParents()) {
-//            final BehaviorInstrumentor parentBehavior = parent.getBehavior(getKey());
-//            if (parentBehavior != null) {
-//                result = parentBehavior.addPreconditionOld(classes, src, result);
-//            }
-//        }
-//
-//        final Ensure ensure = (Ensure) getPrecursor().getAnnotation(Ensure.class);
-//        if (ensure != null) {
-//            for (final String assertion : ensure.value()) {
-//                result = TransformCodecs.PRECONDITION_OLD_VALUES_CODEC(result);
-//                final String transformed = InstrumentorUtil.transform(assertion, targetClass, pool, classInstrumentor.generics,
-//                                                                      TransformCodecs.PRECONDITION_ARGUMENTS_CODEC, result);
-//                if (transformed != null) {
-//                    src.append(transformed);
-//                }
-//            }
-//        }
-//
-//        return result;
-//    }
 
     private void definePostconditionMethod() throws CannotCompileException, NotFoundException, ClassNotFoundException, CompileError {
         LOG.info("Computing postcondition of {}: {}", behavior.getLongName(), postconditionAssertion);
@@ -309,13 +255,8 @@ public abstract class BehaviorInstrumentor {
         }
 
         final StringBuilder src = new StringBuilder("{\n");
-        src.append("final ")
-            .append(oldClassName)
-            .append(" result = new ")
-            .append(oldClassName)
-            .append("();\n");
         src.append(CodeGenerator.ensure(classInstrumentor.generics, this, postconditionAssertion));
-        src.append("return result;\n}");
+        src.append("}\n");
         final String code = src.toString();
         try {
             postcondition = CtNewMethod.make(CtClass.voidType, getPostconditionName(), params, new CtClass[0], code, targetClass);
